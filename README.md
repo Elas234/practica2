@@ -81,3 +81,4 @@ Si no tienes linux de forma nativa en tu ordenador, puedes crear una máquina vi
 ## Más información
 Hemos creado un [fichero con preguntas frecuentes](./FAQ.md) que han ido apareciendo en las distintas sesiones de prácticas.
 
+Esto lo puse yo
