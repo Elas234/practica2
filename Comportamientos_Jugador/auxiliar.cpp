@@ -9,7 +9,7 @@ Action ComportamientoAuxiliar::think(Sensores sensores)
 	switch (sensores.nivel)
 	{
 	case 0:
-		accion = ComportamientoAuxiliarNivel_0 (sensores);
+		// accion = ComportamientoAuxiliarNivel_0 (sensores);
 		break;
 	case 1:
 		// accion = ComportamientoAuxiliarNivel_1 (sensores);
@@ -24,7 +24,7 @@ Action ComportamientoAuxiliar::think(Sensores sensores)
 		// accion = ComportamientoAuxiliarNivel_4 (sensores);
 		break;
 	}
-	
+
 	return accion;
 }
 
