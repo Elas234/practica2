@@ -19,7 +19,7 @@ Action ComportamientoAuxiliar::think(Sensores sensores)
 		break;
 	case 3:
 		// accion = ComportamientoAuxiliarNivel_3 (sensores);
-		accion = ComportamientoAuxiliarNivel_E (sensores);
+		accion = ComportamientoAuxiliarNivel_E(sensores);
 		break;
 	case 4:
 		// accion = ComportamientoAuxiliarNivel_4 (sensores);
@@ -268,7 +268,8 @@ Action ComportamientoAuxiliar::ComportamientoAuxiliarNivel_4(Sensores sensores)
 {
 }
 
-list<Action> AvanzaASaltosDeCaballo() {
+list<Action> AvanzaASaltosDeCaballo()
+{
 	list<Action> secuencia;
 	secuencia.push_back(WALK);
 	secuencia.push_back(WALK);
@@ -278,19 +279,116 @@ list<Action> AvanzaASaltosDeCaballo() {
 	return secuencia;
 }
 
+bool IsSolution(const EstadoA &estado, const EstadoA &final)
+{
+	return estado.f == final.f && estado.c == final.c;
+}
+
+bool CasillaAccesibleAuxiliar(const EstadoA &st, const vector<vector<unsigned char>> &terreno,
+							  const vector<vector<unsigned char>> &altura)
+{
+	EstadoA next = NextCasillaAuxiliar(st);
+	bool check1 = false, check2 = false, check3 = false;
+	check1 = terreno[next.f][next.c] != 'P' && terreno[next.f][next.c] != 'M';
+	check2 = terreno[next.f][next.c] != 'B' || (terreno[next.f][next.c] == 'B' && st.zapatillas);
+	check3 = abs(altura[next.f][next.c] - altura[st.f][st.c]) <= 1;
+	return check1 && check2 && check3;
+}
+
+EstadoA NextCasillaAuxiliar(const EstadoA &st)
+{
+	EstadoA next = st;
+	int avance_f[8] = {1, 1, 0, -1, -1, -1, 0, 1};
+	int avance_c[8] = {0, 1, 1, 1, 0, -1, -1, -1};
+	next.f += avance_f[st.brujula];
+	next.c += avance_c[st.brujula];
+	return next;
+}
+
+EstadoA applyA(Action accion, const EstadoA &st, const vector<vector<unsigned char>> &terreno,
+			   const vector<vector<unsigned char>> &altura)
+{
+	EstadoA next = st;
+	switch (accion)
+	{
+	case WALK:
+		if (CasillaAccesibleAuxiliar(st, terreno, altura))
+		{
+			next = NextCasillaAuxiliar(st);
+		}
+		break;
+	case TURN_SR:
+		next.brujula = (next.brujula + 1) % 8;
+		break;
+	}
+	return next;
+}
+
+list<Action> ComportamientoAuxiliar::AnchuraAuxiliar(const EstadoA &inicio, const EstadoA &final,
+													 const vector<vector<unsigned char>> &terreno, const vector<vector<unsigned char>> &altura)
+{
+	NodoA current_node;
+	list<NodoA> frontier;
+	list<NodoA> explored;
+	list<Action> path;
+
+	current_node.estado = inicio; // Asigna el estado inicial al nodo actual
+	frontier.push_back(current_node);
+	bool SolutionFound = IsSolution(current_node.estado, final);
+
+	while (!SolutionFound && !frontier.empty())
+	{
+		frontier.pop_front();
+		explored.push_back(current_node);
+
+		// for each action applicable to current_node do
+		// begin
+		// 	child ← problem.apply(action, current_node)
+		// 	if (problem.Is_Solution(child) then current_node = child
+		// 	else if child.state() is not in explored or frontier then
+		// 		frontier.insert(child)
+		// end
+		// if (!problem.Is_Solution(current_node) then
+		// 	current_node ← frontier.next()
+
+		if (terreno[current_node.estado.f][current_node.estado.c] == 'D')
+		{
+			current_node.estado.zapatillas = true;
+		}
+
+		NodoA child_WALK;
+		child_WALK.estado = applyA(WALK, current_node.estado, terreno, altura);
+		child_WALK.secuencia.push_back(WALK);
+		if (IsSolution(child_WALK.estado, final)) {
+			current_node = child_WALK;
+			SolutionFound = true;
+		}
+
+		else if (false);
+	}
+
+	if (SolutionFound)
+		path = current_node.secuencia;
+
+	return path;
+}
+
 Action ComportamientoAuxiliar::ComportamientoAuxiliarNivel_E(Sensores sensores)
 {
 	Action accion = IDLE;
-	if (!hayPlan) {
+	if (!hayPlan)
+	{
 		// Invocar al método de búsqueda
 		plan = AvanzaASaltosDeCaballo();
 		hayPlan = true;
 	}
-	if (hayPlan and plan.size() > 0) {
+	if (hayPlan and plan.size() > 0)
+	{
 		accion = plan.front();
 		plan.pop_front();
 	}
-	if (plan.size() == 0) {
+	if (plan.size() == 0)
+	{
 		hayPlan = false;
 	}
 	return accion;
