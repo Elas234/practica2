@@ -104,7 +104,7 @@ Action ComportamientoVandalo::think(Sensores sensores)
     girando = true;
   }
   else if ((esta_en_casilla_objetivo or sensores.superficie[0] == 'X') and
-           (sensores.superficie[2] != 'r' and sensores.superficie[2] != 'M') and
+           (sensores.superficie[2] != 'P' and sensores.superficie[2] != 'M') and
            (sensores.agentes[2] == '_'))
   {
     accion = WALK;
@@ -117,11 +117,11 @@ Action ComportamientoVandalo::think(Sensores sensores)
   {
     bool delanteEsCasillaObjetivo = EsDelanteObjetivo(sensores);
 
-    if (sensores.agentes[2] == 'r' and sensores.superficie[2] != 'X')
+    if (sensores.agentes[2] == 'r')
     {
       accion = PUSH;
     }
-    else if (sensores.agentes[2] == 'r' and sensores.superficie[2] == 'X')
+    else if (sensores.agentes[2] == 'a')
     {
       accion = TURN_SR;
     }
@@ -129,7 +129,7 @@ Action ComportamientoVandalo::think(Sensores sensores)
     {
       accion = TURN_L;
     }
-    else if (!delanteEsCasillaObjetivo and sensores.superficie[2] != 'r' and sensores.superficie[2] != 'M' and sensores.agentes[2] == '_')
+    else if (!delanteEsCasillaObjetivo and sensores.superficie[2] != 'P' and sensores.superficie[2] != 'M' and sensores.agentes[2] == '_')
     {
       if (sensores.agentes[6] == 'r' or sensores.agentes[12] == 'r')
       {
@@ -166,7 +166,7 @@ Action ComportamientoVandalo::think(Sensores sensores)
         accion = TURN_SR;
         break;
       default:
-        if (!delanteEsCasillaObjetivo and sensores.superficie[2] != 'r' and sensores.superficie[2] != 'M' and sensores.agentes[2] == '_')
+        if (!delanteEsCasillaObjetivo and sensores.superficie[2] != 'P' and sensores.superficie[2] != 'M' and sensores.agentes[2] == '_')
           accion = WALK;
         else
           accion = TURN_SR;
