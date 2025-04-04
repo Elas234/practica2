@@ -62,8 +62,8 @@ public:
 
 	void SituarSensorEnMapaA(vector<vector<unsigned char>> &m, vector<vector<unsigned char>> &a, Sensores sensores);
 
-	list<Action> AnchuraAuxiliar(const EstadoA &inicio, const EstadoA &final, 
-		const vector<vector<unsigned char>> &terreno, const vector<vector<unsigned char>> &altura);
+	//list<Action> AnchuraAuxiliar(const EstadoA &inicio, const EstadoA &final, 
+	//	const vector<vector<unsigned char>> &terreno, const vector<vector<unsigned char>> &altura);
 
 	Action ComportamientoAuxiliarNivel_0(Sensores sensores);
 	Action ComportamientoAuxiliarNivel_1(Sensores sensores);
@@ -71,7 +71,7 @@ public:
 	Action ComportamientoAuxiliarNivel_3(Sensores sensores);
 	Action ComportamientoAuxiliarNivel_4(Sensores sensores);
 
-	Action ComportamientoAuxiliarNivel_E(Sensores sensores);
+	//Action ComportamientoAuxiliarNivel_E(Sensores sensores);
 
 private:
 	// Definir Variables de Estado

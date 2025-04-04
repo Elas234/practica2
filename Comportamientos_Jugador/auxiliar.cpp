@@ -19,7 +19,7 @@ Action ComportamientoAuxiliar::think(Sensores sensores)
 		break;
 	case 3:
 		// accion = ComportamientoAuxiliarNivel_3 (sensores);
-		accion = ComportamientoAuxiliarNivel_E(sensores);
+		// accion = ComportamientoAuxiliarNivel_E(sensores);
 		break;
 	case 4:
 		// accion = ComportamientoAuxiliarNivel_4 (sensores);
@@ -188,7 +188,7 @@ Action ComportamientoAuxiliar::ComportamientoAuxiliarNivel_0(Sensores sensores)
 	Action action;
 
 	// Actualización de variables de estado
-	// SituarSensorEnMapaA(mapaResultado, mapaCotas, sensores);
+	//SituarSensorEnMapaA(mapaResultado, mapaCotas, sensores);
 
 	if (sensores.superficie[0] == 'D')
 	{
@@ -278,7 +278,7 @@ list<Action> AvanzaASaltosDeCaballo()
 	secuencia.push_back(WALK);
 	return secuencia;
 }
-
+/*
 bool IsSolution(const EstadoA &estado, const EstadoA &final)
 {
 	return estado.f == final.f && estado.c == final.c;
@@ -392,4 +392,4 @@ Action ComportamientoAuxiliar::ComportamientoAuxiliarNivel_E(Sensores sensores)
 		hayPlan = false;
 	}
 	return accion;
-}
+}*/
