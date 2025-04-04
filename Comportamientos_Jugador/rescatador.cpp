@@ -1,5 +1,7 @@
 #include "../Comportamientos_Jugador/rescatador.hpp"
 #include "motorlib/util.h"
+#include <iostream>
+using namespace std;
 
 Action ComportamientoRescatador::think(Sensores sensores)
 {
@@ -54,24 +56,129 @@ char ComportamientoRescatador::ViablePorAlturaR(char casilla, int dif, bool zap)
 		return 'P';
 }
 
+void ComportamientoRescatador::SituarSensorEnMapaR(vector<vector<unsigned char>> &m, vector<vector<unsigned char>> &a, Sensores sensores) {
+	
+	int x = sensores.posF;
+	int y = sensores.posC;
+	cout << x << " " << y << endl;
+	int cont = 0;
+	int mx, my;
+	Orientacion o = sensores.rumbo;
+	int sgn[2] = {1, -1};
+	cout << o << endl;
+	int s = sgn[o/4];
+
+	m[x][y] = sensores.superficie[0];
+
+	// if(o&1) {
+	// 	for(int i=0; i<4; ++i) {
+	// 		for(int j=i;j>0;++j) {
+	// 			switch(o) {
+	// 				case noreste:
+	// 				case suroeste:
+	// 					mx = x+s*(i-j);
+	// 					my = y+s*i;
+	// 					break;
+	// 				case este:
+	// 				case oeste:
+	// 					mx = x+s*i;
+	// 					my = y+s*(i-j);
+	// 					break;
+	// 			}
+	// 			m[mx][my] = sensores.superficie[cont];
+	// 			a[mx][my] = sensores.cota[cont];
+	// 			++cont;
+	// 		}
+
+
+	// 		// Noreste
+	// 		// m[x+i-j][y+i] = sensores.superficie[cont];
+
+	// 		// Sureste
+	// 		// m[x+i][y+i-j] = sensores.superficie[cont];
+
+	// 		// Suroeste
+	// 		// m[x-i+j][y-i] = sensores.superficie[cont];
+
+	// 		// Noroeste
+	// 		// m[x-i][y-i+j] = sensores.superficie[cont];
+
+	// 		for(int j=0;j<=i;++j) {
+	// 			switch(o) {
+	// 				case noreste:
+	// 				case suroeste:
+	// 					mx = x+s*i;
+	// 					my = y+s*(i-j);
+	// 					break;
+	// 				case este:
+	// 				case oeste:
+	// 					mx = x+s*(i-j);
+	// 					my = y+s*i;
+	// 					break;
+	// 			}
+	// 			m[mx][my] = sensores.superficie[cont];
+	// 			a[mx][my] = sensores.cota[cont];
+	// 			++cont;
+	// 		}
+
+	// 		// Noreste
+	// 		// m[x+i][y+i-j] = sensores.superficie[cont];
+
+	// 		// Sureste
+	// 		// m[x+i-j][y+i] = sensores.superficie[cont];
+
+	// 		// Suroeste
+	// 		// m[x-i][y-i+j] = sensores.superficie[cont];
+
+	// 		// Noroeste
+	// 		// m[x-i+j][y-i] = sensores.superficie[cont];
+	// 	}
+	// }
+	// else {
+
+	// 	for(int i=0; i<4; ++i) {
+	// 		for(int j=-i;j<=i;++j) {
+	// 			switch (o) {
+	// 				case norte:
+	// 				case sur:
+	// 					mx = x + s*j;
+	// 					my = y + s*i;
+	// 					break;
+	// 				case este:
+	// 				case oeste:
+	// 					mx = x + s*i;
+	// 					my = y - s*j;
+	// 					break;
+	// 				default:
+	// 					cout << "error" << endl;
+	// 					break;
+	// 			}
+	// 			// cout << mx-x << " " << my-y << endl;
+	// 			m[mx][my] = sensores.superficie[cont];
+	// 			a[mx][my] = sensores.cota[cont];
+	// 			++cont;
+	// 		}
+	// 	}
+	// }
+
+
+	// // Norte
+	// // m[x+j][y+i] = sensores.superficie[cont];
+
+	// // Sur	
+	// // m[x-j][y-i] = sensores.superficie[cont];
+
+	// // Este
+	// // m[x+i][y-j] = sensores.superficie[cont];
+
+	// // Oeste
+	// // m[x-i][y+j] = sensores.superficie[cont];
+	
+}
+
 Action ComportamientoRescatador::ComportamientoRescatadorNivel_0(Sensores sensores)
 {
 	// El comportamiento de seguir un camino hasta encontrar un puesto base.
-	/*
-	bool transitable[4];
-	for(int i=1; i<4; ++i) {
-		transitable[i] = (sensores.superficie[i] == 'C' || sensores.superficie[i] == 'X') && 
-			abs(sensores.cota[i]-sensores.cota[i]) <= 1;
-	} 
-
-	if(transitable[3]) action = TURN_SR;
-	else if(transitable[2]) action = WALK;
-	else action = TURN_L;
-
-	if(sensores.choque) {
-		action = TURN_L;
-	}
-	*/
 
 	/*
 		Fase 1: Observar el entorno
@@ -87,6 +194,8 @@ Action ComportamientoRescatador::ComportamientoRescatadorNivel_0(Sensores sensor
 	*/
 
 	Action action;
+
+	// SituarSensorEnMapaR(mapaResultado, mapaCotas, sensores);
 
 	if(sensores.superficie[0] == 'D') {
 		tiene_zapatillas = true;
@@ -107,6 +216,14 @@ Action ComportamientoRescatador::ComportamientoRescatadorNivel_0(Sensores sensor
 	else if(giro45izq != 0) {
 		action = TURN_SR;
 		giro45izq--;
+	}
+	else if(giro180 != 0) {
+		action = TURN_L;
+		giro180--;
+	}
+	else if (sensores.agentes[2] != '_') {
+		giro180 = 1;
+		action = TURN_L;
 	}
 	else 
 	{
