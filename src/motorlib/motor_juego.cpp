@@ -887,6 +887,7 @@ bool lanzar_motor_juego(int &colisiones, int acc)
       std::cout << "Nivel Final de Energía (Auxiliar): " << monitor.get_entidad(1)->getBateria() << endl;
       std::cout << "Colisiones: " << monitor.get_entidad(0)->getColisiones() + monitor.get_entidad(1)->getColisiones() << endl;
       std::cout << "Empujones: " << monitor.get_entidad(0)->getEmpujones() << endl;
+      std::cout << "Porcentaje descubierto de caminos y senderos: " << monitor.CoincidenciaConElMapaCaminosYSenderos() << endl;
       std::cout << "Porcentaje de mapa descubierto: " << monitor.CoincidenciaConElMapa() << endl;
       std::cout << "Objetivos encontrados: (" << monitor.get_entidad(0)->getMisiones() << ") " << monitor.get_entidad(0)->getPuntuacion() << endl;
       monitor.setMostrarResultados(false);
@@ -922,13 +923,13 @@ void lanzar_motor_juego2(MonitorJuego &monitor)
   }
   else if (monitor.mostrarResultados() and (monitor.getLevel() == 2))
   {
-    std::cout << "Longitud del camino (Rescatador): " << 2999 - monitor.get_entidad(0)->getInstantesPendientes() << endl;
+    std::cout << "Longitud del camino (Rescatador): " << 3000 - monitor.get_entidad(0)->getInstantesPendientes() << endl;
     std::cout << "Coste de Energía (Rescatador): " << 3000 - monitor.get_entidad(0)->getBateria() << endl;
     monitor.setMostrarResultados(false);
   }
   else if (monitor.mostrarResultados() and monitor.getLevel() == 3)
   {
-    std::cout << "Longitud del camino (Auxiliar): " << 2999 - monitor.get_entidad(1)->getInstantesPendientes() << endl;
+    std::cout << "Longitud del camino (Auxiliar): " << 3000 - monitor.get_entidad(1)->getInstantesPendientes() << endl;
     std::cout << "Coste de Energía (Auxiliar): " << 3000 - monitor.get_entidad(1)->getBateria() << endl;
     monitor.setMostrarResultados(false);
   }
@@ -940,6 +941,7 @@ void lanzar_motor_juego2(MonitorJuego &monitor)
     std::cout << "Nivel Final de Energía (Auxiliar): " << monitor.get_entidad(1)->getBateria() << endl;
     std::cout << "Colisiones: " << monitor.get_entidad(0)->getColisiones() + monitor.get_entidad(1)->getColisiones() << endl;
     std::cout << "Empujones: " << monitor.get_entidad(0)->getEmpujones() << endl;
+    std::cout << "Porcentaje descubierto de caminos y senderos: " << monitor.CoincidenciaConElMapaCaminosYSenderos() << endl;
     std::cout << "Porcentaje de mapa descubierto: " << monitor.CoincidenciaConElMapa() << endl;
     std::cout << "Objetivos encontrados: (" << monitor.get_entidad(0)->getMisiones() << ") " << monitor.get_entidad(0)->getPuntuacion() << endl;
     monitor.setMostrarResultados(false);
