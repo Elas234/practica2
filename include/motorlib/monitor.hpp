@@ -35,6 +35,14 @@ private:
 
   int nivel = 1;
 
+  bool recarga_pisada_rescatador = false; // Para informar en el nivel 0.
+  bool recarga_pisada_auxiliar = false;
+  bool recarga_abandonada_rescatador = false; // Para informar en el nivel 0.
+  bool recarga_abandonada_auxiliar = false;
+
+  bool camino_abandonado_rescatador = false;
+  bool camino_abandonado_auxiliar = false;
+
 public:
   MonitorJuego(int x = 3000) { maxPasos = x; }
   ~MonitorJuego() {}
@@ -134,5 +142,18 @@ public:
 
   string strAccion(Action accion);
 
+  inline bool getRecargaPisadaRescatador() { return recarga_pisada_rescatador; }
+  inline bool getRecargaPisadaAuxiliar() { return recarga_pisada_auxiliar; }
+  inline bool getRecargaAbandonadaRescatador() { return recarga_abandonada_rescatador; }
+  inline bool getRecargaAbandonadaAuxiliar() { return recarga_abandonada_auxiliar; }
+  inline void setRecargaPisadaRescatador(bool valor) { recarga_pisada_rescatador = valor; }
+  inline void setRecargaPisadaAuxiliar(bool valor) { recarga_pisada_auxiliar = valor; }
+  inline void setRecargaAbandonadaRescatador(bool valor) { recarga_abandonada_rescatador = valor; }
+  inline void setRecargaAbandonadaAuxiliar(bool valor) { recarga_abandonada_auxiliar = valor; }
+
+  inline bool getCaminoAbandonadoRescatador() { return camino_abandonado_rescatador; }
+  inline void setCaminoAbandonadoRescatador(bool valor) { camino_abandonado_rescatador = valor; }
+  inline bool getCaminoAbandonadoAuxiliar() { return camino_abandonado_auxiliar; }
+  inline void setCaminoAbandonadoAuxiliar(bool valor) { camino_abandonado_auxiliar = valor; }
 };
 #endif
