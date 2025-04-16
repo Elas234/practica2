@@ -42,7 +42,7 @@ public:
 
 		last_action = IDLE;
 		tiene_zapatillas = false;
-		giro45izq = giro180 = 0;
+		avanza = giro45izq = giro180 = 0;
 	}
 	ComportamientoAuxiliar(std::vector<std::vector<unsigned char>> mapaR, std::vector<std::vector<unsigned char>> mapaC) : Comportamiento(mapaR, mapaC)
 	{
@@ -56,14 +56,26 @@ public:
 
 	int interact(Action accion, int valor);
 
-	int VeoCasillaInteresanteA(char i, char c, char d);
+	// Métodos nivel 0
+	int TomarDecision(const vector<unsigned char> & vision);
+	char ViablePorAltura(char casilla, int dif);
+	void SituarSensorEnMapa(vector<vector<unsigned char>> &m, vector<vector<unsigned char>> &a, Sensores sensores);
 
-	char ViablePorAlturaA(char casilla, int dif);
 
-	void SituarSensorEnMapaA(vector<vector<unsigned char>> &m, vector<vector<unsigned char>> &a, Sensores sensores);
+	// Funciones nivel 3
+	list<Action> AnchuraAuxiliar(const EstadoA &inicio, const EstadoA &final, 
+		const vector<vector<unsigned char>> &terreno, const vector<vector<unsigned char>> &altura);
 
-	//list<Action> AnchuraAuxiliar(const EstadoA &inicio, const EstadoA &final, 
-	//	const vector<vector<unsigned char>> &terreno, const vector<vector<unsigned char>> &altura);
+	bool IsSolution(const EstadoA &estado, const EstadoA &final);
+	bool CasillaAccesibleAuxiliar(const EstadoA &st, const vector<vector<unsigned char>> &terreno,
+		const vector<vector<unsigned char>> &altura);
+	EstadoA NextCasillaAuxiliar(const EstadoA &st);
+	EstadoA applyA(Action accion, const EstadoA &st, const vector<vector<unsigned char>> &terreno,
+		const vector<vector<unsigned char>> &altura);
+	bool Find(const NodoA &st, const list<NodoA> &lista);
+	void VisualizaPlan(const EstadoA &st, const list<Action> &plan);
+	void PintaPlan(const list<Action> &plan, bool zap);
+	void AnularMatrizA(vector<vector<unsigned char>> &m);
 
 	Action ComportamientoAuxiliarNivel_0(Sensores sensores);
 	Action ComportamientoAuxiliarNivel_1(Sensores sensores);
@@ -71,7 +83,8 @@ public:
 	Action ComportamientoAuxiliarNivel_3(Sensores sensores);
 	Action ComportamientoAuxiliarNivel_4(Sensores sensores);
 
-	//Action ComportamientoAuxiliarNivel_E(Sensores sensores);
+	Action ComportamientoAuxiliarNivel_E(Sensores sensores);
+
 
 private:
 	// Definir Variables de Estado
@@ -82,6 +95,7 @@ private:
 	bool tiene_zapatillas;
 	int giro45izq;
 	int giro180;
+	int avanza;
 
 	list<Action> plan;
 	bool hayPlan;

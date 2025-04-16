@@ -17,7 +17,7 @@ public:
 
 		last_action = IDLE;
 		tiene_zapatillas = false;
-		giro45izq = giro180 = 0;
+		corre = avanza = giro45izq = giro180 = 0;
 	}
 	ComportamientoRescatador(std::vector<std::vector<unsigned char>> mapaR, std::vector<std::vector<unsigned char>> mapaC) : Comportamiento(mapaR, mapaC)
 	{
@@ -30,11 +30,12 @@ public:
 
 	int interact(Action accion, int valor);
 
-	int VeoCasillaInteresanteR (char i, char c, char d, bool zap);
+	int TomarDecision (const vector<unsigned char> & vision, const vector<unsigned char> & altura, const vector<bool> & accesible, const vector<bool> & transitable, bool zap);
 
-	char ViablePorAlturaR(char casilla, int dif, bool zap);
+	bool ViablePorAltura(char casilla, int dif, bool zap);
+	// char ViablePorSprint(char origen, char inter, int dif, bool zap);
 
-	void SituarSensorEnMapaR(vector<vector<unsigned char>> &m, vector<vector<unsigned char>> &a, Sensores sensores);
+	void SituarSensorEnMapa(vector<vector<unsigned char>> &m, vector<vector<unsigned char>> &a, Sensores sensores);
 
 	Action ComportamientoRescatadorNivel_0(Sensores sensores);
 	Action ComportamientoRescatadorNivel_1(Sensores sensores);
@@ -51,6 +52,8 @@ private:
 	bool tiene_zapatillas;
 	int giro45izq;
 	int giro180;
+	int avanza;
+	int corre;
 };
 
 #endif
