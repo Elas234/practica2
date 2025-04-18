@@ -36,38 +36,168 @@ class ComportamientoAuxiliar : public Comportamiento
 {
 
 public:
+	/**
+	 * @brief Constructor por defecto para los niveles 0,1,4
+	 * @param size Tamaño del mapa
+	 */
 	ComportamientoAuxiliar(unsigned int size = 0) : Comportamiento(size)
 	{
 		// Inicializar Variables de Estado Niveles 0,1,4
 
 		last_action = IDLE;
 		tiene_zapatillas = false;
-		avanza = giro45izq = giro180 = 0;
+		acciones_pendientes.resize(2, 0);
+		num_acciones = 0;
 		mapaFrecuencias.resize(size, vector<int>(size, 0));
 	}
+	/**
+	 * @brief Constructor para los niveles 2,3
+	 * @param mapaR Mapa de terreno
+	 * @param mapaC Mapa de alturas
+	 */
 	ComportamientoAuxiliar(std::vector<std::vector<unsigned char>> mapaR, std::vector<std::vector<unsigned char>> mapaC) : Comportamiento(mapaR, mapaC)
 	{
 		// Inicializar Variables de Estado Niveles 2,3
 		hayPlan = false;
 	}
+	/**
+	 * @brief Constructor de copia
+	 * @param comport Comportamiento a copiar
+	 */
 	ComportamientoAuxiliar(const ComportamientoAuxiliar &comport) : Comportamiento(comport) {}
+
+	/**
+	 * @brief Destructor
+	 */
 	~ComportamientoAuxiliar() {}
 
+	/**
+	 * @brief Función principal del comportamiento
+	 * @param sensores Sensores del agente
+	 * @return Acción a realizar
+	 */
 	Action think(Sensores sensores);
 
+	/**
+	 * @brief Interactúa con el entorno
+	 * @param accion Acción a realizar
+	 * @param valor Valor de la acción
+	 * @return Resultado de la interacción
+	 */
 	int interact(Action accion, int valor);
 
-	// Métodos nivel 0
+	/********************************** NIVEL 0 ***************************************/
+
+	/**
+	 * @brief Convierte la posición de la casilla en el vector sensor a la posición de la casilla en el mapa
+	 * @param i Posición de la casilla en el sensor
+	 * @param rumbo Dirección del sensor
+	 * @param orig Posición del agente
+	 * @return Posición de la casilla en el mapa
+	 */
+	pair<int, int> VtoM(int i, Orientacion rumbo, pair<int, int> & orig);
+
+	/**
+	 * @brief Coloca el sensor en el mapa (lo "pinta")
+	 * @param sensores Sensores del agente
+	 */
+	void SituarSensorEnMapa(const Sensores & sensores);
+
+		/**
+	 * @brief Determina si tengo tareas pendientes
+	 * @param sensores Sensores del agente
+	 * @param action Acción a realizar
+	 * @return true si tengo tareas pendientes, false en caso contrario
+	 */
+	bool TengoTareasPendientes(const Sensores & sensores, Action & action);
+
+	/**
+	 * @brief Comprueba si la casilla es viable por altura
+	 * @param dif Diferencia de altura
+	 * @return true si la casilla es viable por altura, false en caso contrario
+	 */
+	bool ViablePorAltura(int dif);
+
+	/**
+	 * @brief Selecciona las casillas interesantes visibles por el agente
+	 * @param sensores Sensores del agente
+	 * @param accesible Casillas accesibles
+	 * @param is_interesting Casillas interesantes. Parámetro de salida
+	 * @param casillas_interesantes Casillas interesantes. Parámetro de salida
+	 * @param zap Si el agente tiene zapatillas
+	 * 
+	 * @note Las casillas seleccionadas son enteros relativos a la posición del agente:
+	 * 
+	 * 		9	10	11	12	13	14	15
+	 * 			4	5	6	7	8
+	 * 				1	2	3
+	 * 					^		
+	 */
 	void CasillasInteresantes(const Sensores & sensores, const vector<bool> & accesible, 
 		vector<bool> & is_interesting, vector<int> & casillas_interesantes);
+
+	/**
+	 * @brief Selecciona las casillas interesantes alrededor del agente
+	 * @param orig Posición del agente
+	 * @param accesible Casillas accesibles
+	 * @param is_interesting Casillas interesantes. Parámetro de salida
+	 * @param casillas_interesantes Casillas interesantes. Parámetro de salida
+	 * @param zap Si el agente tiene zapatillas
+	 * 
+	 * @note Las casillas seleccionadas son enteros relativos a la posición del agente:
+	 * 
+	 * 		7	0	1
+	 * 		6	^	2
+	 * 		5	4	3
+	 */
+	void CasillasInteresantesAllAround(const pair<int,int> & orig, const vector<bool> & accesible, 
+		vector<bool> & is_interesting, vector<int> & casillas_interesantes);
+
+	/**
+	 * @brief Selecciona la casilla más interesante de entre las que puede ir con un giro y un avance
+	 * @param sensores Sensores del agente
+	 * @param casillas_interesantes Casillas interesantes
+	 * @param is_interesting Casillas interesantes
+	 * @return Casilla seleccionada
+	 * 
+	 * @note La casilla seleccionada es un entero relativo a la posición del agente:
+	 * 
+	 * 		9	10	11	12	13	14	15
+	 * 			4	5	6	7	8
+	 * 				1	2	3
+	 * 					^	
+	 */ 
 	int SelectCasilla(const Sensores & sensores, const vector<int> & casillas_interesantes, 
 		const vector<bool> & is_interesting);
-	bool ViablePorAltura(int dif);
-	pair<int, int> VtoM(int i, Orientacion rumbo, pair<int, int> & orig);
-	void SituarSensorEnMapa(vector<vector<unsigned char>> &m, vector<vector<unsigned char>> &a, const Sensores & sensores);
+
+	/**
+	 * @brief Selecciona la casilla más interesante de entre las que puede ir con un giro y un avance
+	 * @param orig Posición del agente
+	 * @param casillas_interesantes Casillas interesantes
+	 * @param is_interesting Casillas interesantes
+	 * @param rumbo Dirección en la que está mirando el agente
+	 * @return Casilla seleccionada
+	 * 
+	 * @note La casilla seleccionada es un entero relativo a la posición del agente:
+	 * 
+	 * 		7	0	1	
+	 * 		6	^	2
+	 * 		5	4	3	
+	 */
+	int SelectCasillaAllAround(const pair<int,int> & orig, const vector<int> & casillas_interesantes, 
+		const vector<bool> & is_interesting, Orientacion rumbo);
+	
+	/**
+	 * @brief Selecciona la acción a realizar en función de la casilla a la que quiero ir
+	 * @param decision Casilla a la que quiero ir
+	 * @param rumbo Dirección en la que está mirando el agente
+	 * @return Acción a realizar
+	 */
+	Action SelectAction(int decision, Orientacion rumbo);	
 
 
-	// Funciones nivel 3
+	/***************************** NIVEL E ********************************************/
+
 	list<Action> AnchuraAuxiliar(const EstadoA &inicio, const EstadoA &final, 
 		const vector<vector<unsigned char>> &terreno, const vector<vector<unsigned char>> &altura);
 
@@ -98,9 +228,8 @@ private:
 
 	Action last_action;
 	bool tiene_zapatillas;
-	int giro45izq;
-	int giro180;
-	int avanza;
+	vector<int> acciones_pendientes; // [TURN_SR, WALK]
+	int num_acciones;
 	vector< vector<int> > mapaFrecuencias;
 
 	list<Action> plan;
