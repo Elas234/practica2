@@ -43,6 +43,7 @@ public:
 		last_action = IDLE;
 		tiene_zapatillas = false;
 		avanza = giro45izq = giro180 = 0;
+		mapaFrecuencias.resize(size, vector<int>(size, 0));
 	}
 	ComportamientoAuxiliar(std::vector<std::vector<unsigned char>> mapaR, std::vector<std::vector<unsigned char>> mapaC) : Comportamiento(mapaR, mapaC)
 	{
@@ -57,9 +58,13 @@ public:
 	int interact(Action accion, int valor);
 
 	// Métodos nivel 0
-	int TomarDecision(const vector<unsigned char> & vision);
-	char ViablePorAltura(char casilla, int dif);
-	void SituarSensorEnMapa(vector<vector<unsigned char>> &m, vector<vector<unsigned char>> &a, Sensores sensores);
+	void CasillasInteresantes(const Sensores & sensores, const vector<bool> & accesible, 
+		vector<bool> & is_interesting, vector<int> & casillas_interesantes);
+	int SelectCasilla(const Sensores & sensores, const vector<int> & casillas_interesantes, 
+		const vector<bool> & is_interesting);
+	bool ViablePorAltura(int dif);
+	pair<int, int> VtoM(int i, Orientacion rumbo, pair<int, int> & orig);
+	void SituarSensorEnMapa(vector<vector<unsigned char>> &m, vector<vector<unsigned char>> &a, const Sensores & sensores);
 
 
 	// Funciones nivel 3
@@ -96,6 +101,7 @@ private:
 	int giro45izq;
 	int giro180;
 	int avanza;
+	vector< vector<int> > mapaFrecuencias;
 
 	list<Action> plan;
 	bool hayPlan;

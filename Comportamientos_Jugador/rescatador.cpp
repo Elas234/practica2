@@ -34,8 +34,92 @@ int ComportamientoRescatador::interact(Action accion, int valor)
 	return 0;
 }
 
-int ComportamientoRescatador::TomarDecision (const vector<unsigned char> & vision, const vector<unsigned char> & altura,
-		const vector<bool> & accesible, const vector<bool> & transitable, bool zap) {
+pair<int, int> ComportamientoRescatador::VtoM(int i, Orientacion rumbo, const pair<int, int> & orig)
+{
+	// Incremento/decremento de las coordenadas de la casilla justo en frente en función de la dirección
+	// Norte, noreste, este, sureste, sur, suroeste, oeste,noroeste
+	const int sf[8] = {-1, -1, 0,  1,  1,  1,  0, -1};
+	const int sc[8] = { 0,  1, 1,  1,  0, -1, -1, -1};
+
+	// Nivel de la casilla 		
+	//									Nivel
+	//	9	10	11	12	13	14	15		3
+	//		4	5	6	7	8			2
+	//			1	2	3				1
+	//				^					0
+
+	const int level[16] = {0,1,1,1,2,2,2,2,2,3,3,3,3,3,3,3};
+
+	// Desplazamiento respecto de la casilla central del nivel 
+	// Las casillas centrales son 2,6,12
+	const int dist[16] = {0,-1,0,1,-2,-1,0,1,2,-3,-2,-1,0,1,2,3};
+
+	// Signo del desplazamiento
+	int sdistf[8] = {0,  1,  1,  1,  0, -1, -1, -1};
+	int sdistc[8] = {1,  1,  0, -1, -1, -1,  0,  1};
+
+	// Las diagonales tienen dos casos
+	if(dist[i] < 0) {
+		sdistf[1] = sdistf[5] = 0;
+		sdistc[3] = sdistc[7] = 0;
+	}
+	else {
+		sdistf[3] = sdistf[7] = 0;
+		sdistc[1] = sdistc[5] = 0;
+	}
+	const int f = orig.first;
+	const int c = orig.second;
+
+	// Primero me desplazo hacia adelante (primer sumando) y luego lateralmente (segundo sumando)
+	int nf = f + sf[rumbo] * level[i] + sdistf[rumbo] * dist[i];
+	int nc = c + sc[rumbo] * level[i] + sdistc[rumbo] * dist[i];
+
+	return {nf, nc};
+}
+
+void ComportamientoRescatador::CasillasInteresantes (const Sensores & sensores, const vector<bool> & accesible, const vector<bool> & transitable,
+	vector<bool> & is_interesting, vector<int> & casillas_interesantes, bool zap) {
+
+	is_interesting.resize(16, false);
+	casillas_interesantes.clear();
+
+	vector<unsigned char> vision = sensores.superficie;
+	vector<unsigned char> altura = sensores.cota;
+	vector<unsigned char> agentes = sensores.agentes;
+	
+		
+	//? Primero compruebo si puedo ir a algún lado, y solo hago cálculos si puedo ir a más de uno
+	
+	const int NUM_RELEVANT = 3;
+	const int ALCANZABLES = 6;
+	
+	const char RELEVANT[NUM_RELEVANT] = {'X', 'D', 'C'};
+	const int POINTS[NUM_RELEVANT] = {10000, 1000, 100};
+	const int DESTINOS[ALCANZABLES] = {1,2,3,4,6,8};
+	
+	for(char c : RELEVANT) {
+		if (c == 'D' && zap) continue;
+		for(int i : DESTINOS) {
+			if(vision[i] == c && accesible[i]) {
+				if(i >= 4 && !transitable[i/2-1]) continue;
+				if((c=='X'  || c=='D') && agentes[i] != 'a') {
+					casillas_interesantes.push_back(i);
+					return;
+				}
+				is_interesting[i] = true;
+				casillas_interesantes.push_back(i);
+			}
+		}
+	}
+	return;
+}
+
+int ComportamientoRescatador::SelectCasilla (const Sensores & sensores, const vector<int> & casillas_interesantes, 
+	const vector<bool> & is_interesting, bool zap) {
+
+	vector<unsigned char> vision = sensores.superficie;
+	vector<unsigned char> altura = sensores.cota;
+	vector<unsigned char> agentes = sensores.agentes;
 
 	
 	//? Primero compruebo si puedo ir a algún lado, y solo hago cálculos si puedo ir a más de uno
@@ -44,27 +128,18 @@ int ComportamientoRescatador::TomarDecision (const vector<unsigned char> & visio
 	const int ALCANZABLES = 6;
 
 	const char RELEVANT[NUM_RELEVANT] = {'X', 'D', 'C'};
-	const char POINTS[NUM_RELEVANT] = {100, 10, 1};
-
-	bool is_interesting[ALCANZABLES] = {false};
-	vector<int> casillas_interesantes;
-	for(char c : RELEVANT) {
-		if (c == 'D' && zap) continue;
-		for(int i=1, inc=1; i<=ALCANZABLES; i+=inc) {
-			if(i==4) ++inc;
-			if(vision[i] == c && accesible[i]) {
-				if(i>=4 && !transitable[i/2-1]) continue;
-				if(c=='X' || c=='D') return i;
-				is_interesting[i] = true;
-				casillas_interesantes.push_back(i);
-				break;
-			}
-		}
-	}
+	const double POINTS[NUM_RELEVANT] = {10000.0, 1000.0, 100.0};
+	const int DESTINOS[ALCANZABLES] = {1,2,3,4,6,8};
 
 	// No hay casillas interesantes o solo hay una
-	if(casillas_interesantes.size() == 0) return 0;
-	if(casillas_interesantes.size() == 1) return casillas_interesantes[0];
+	if(casillas_interesantes.size() == 0) {
+		return 0;
+	}
+	if(casillas_interesantes.size() == 1) {
+		return casillas_interesantes[0];
+	}
+
+	
 
 	// Hay más de una, me voy por donde haya más y mejores casillas interesantes
 
@@ -76,213 +151,73 @@ int ComportamientoRescatador::TomarDecision (const vector<unsigned char> & visio
 	//				^
 	const int CASILLAS_POR_SECCION = 3;
 	const int M[ALCANZABLES][CASILLAS_POR_SECCION] = 
-	{	{9,10,11}, // fondo izquierda (ir a 4)
+	{	
 		{4,5,6}, // izquierda (ir a 1)
 		{5,6,7}, // centro (ir a 2)
+		{6,7,8}, // derecha (ir a 3)
+		{9,10,11}, // fondo izquierda (ir a 4)
 		{11,12,13}, // fondo centro (ir a 6)
-		{12,13,14}, // derecha (ir a 3)
 		{13,14,15} // fondo derecha (ir a 8)
 	}; 
 
-	int puntuacion_camino[ALCANZABLES] = {0};
-	int max_points = 0;
+	double puntuacion_destino[ALCANZABLES] = {0.0};
+	double max_points = 0.0;
 	int decision = 0;
+	pair<int,int> orig = {sensores.posF, sensores.posC};
 	for(int i=0; i<ALCANZABLES; ++i) {
-		if(!is_interesting[i]) continue;
+		if(!is_interesting[DESTINOS[i]]) continue;
 		for(int j=0; j<CASILLAS_POR_SECCION; ++j) {
 			for(int k=0; k<NUM_RELEVANT; ++k) {
 				if(vision[M[i][j]] == RELEVANT[k]) {
+					// No considero las casillas objetivo con agentes
+					if(vision[M[i][j]] == 'X' && agentes[M[i][j]] == 'a') continue;
+
 					// Puntuación inversamente proporcional a la diferencia de altura
-					puntuacion_camino[i] += (POINTS[k]/(1+abs(altura[M[i][j]]-altura[0])));
+					puntuacion_destino[i] += (POINTS[k]/(1+abs(altura[M[i][j]]-altura[DESTINOS[i]])));
+					
+					// Puntuación inversamente proporcional a la frecuencia de la casilla
+					pair<int,int> casilla = VtoM(M[i][j], sensores.rumbo, orig);
+					puntuacion_destino[i] /= (1.0+mapaFrecuencias[casilla.first][casilla.second]);
+
 				}
 			}
 		}
+
+		pair<int,int> casilla_destino = VtoM(DESTINOS[i], sensores.rumbo, orig);
+		puntuacion_destino[i] /= (1.0+mapaFrecuencias[casilla_destino.first][casilla_destino.second]);
 		// Actualizar máximo
-		if(puntuacion_camino[i] >= max_points) {
-			max_points = puntuacion_camino[i];
-			decision = i;
+		if(puntuacion_destino[i] >= max_points) {
+			max_points = puntuacion_destino[i];
+			decision = DESTINOS[i];
 		}
 	}
-	// Ajuste de índices
-	// 0 -> 1, 1 -> 2, 2 -> 3
-	// 3 -> 4, 4 -> 6, 5 -> 8
-	if(decision<3) ++decision;
-	else decision = 2*(decision-1);
+
+	cout << "Puntuaciones: " << endl;
+	for(int i=0; i<ALCANZABLES; ++i) {
+		cout << DESTINOS[i] << ": " << puntuacion_destino[i] << endl;
+	}
+	cout << "Ganador: " << decision << endl;
 
 	return decision;
-
-	//? Maybe mejorar esto pa extenderlo a toda la visión
-	// if(c=='X') return 2;
-	// else if(i=='X') return 1;
-	// else if(d=='X') return 3;
-	// else if(!zap) {
-	// 	if(c=='D') return 2;
-	// 	else if(i=='D') return 1;
-	// 	else if(d=='D') return 3;
-	// }
-	// if(c=='C') return 2;
-	// else if(i=='C') return 1;
-	// else if(d=='C') return 3;
-	// else return 0;
-
-	//? Es un comportamiento básico, bastante mejorable
-
-	// const char RELEVANT[3] = {'X', 'D', 'C'};
-	// const int MAX_LVL = 3;
-	// for(char c : RELEVANT) {
-	// 	for(int i=2, level=1; level<=MAX_LVL; i+=2*(++level)) {
-	// 		cout << i << endl;
-	// 		if(vision[i] == c) return i;
-	// 		for(int j=1; j<=level; ++j) {
-	// 			cout << i-j << endl;
-	// 			cout << i+j << endl;
-	// 			if(vision[i-j] == c) return i-j;
-	// 			if(vision[i+j] == c) return i+j;
-	// 		}
-	// 	}
-	// }
-	// return 0;
 }
 
-bool ComportamientoRescatador::ViablePorAltura(char casilla, int dif, bool zap) {
+bool ComportamientoRescatador::ViablePorAltura(int dif, bool zap) {
 	return (abs(dif) <= 1 || (zap && abs(dif) <= 2));
 }
 
-// char ComportamientoRescatador::ViablePorSprint(char origen, char inter, int dif, bool zap) {
-// 	bool inter_transitable = true;
-// 	if(inter == 'P' || inter == 'M' || (inter == 'B' && !zap) ) {
-// 		return 'P';
-// 	}
-// 	else return ViablePorAltura(origen, dif, zap);
-// }
-
 void ComportamientoRescatador::SituarSensorEnMapa(vector<vector<unsigned char>> &m, vector<vector<unsigned char>> &a, Sensores sensores) {
 	
-	int y = sensores.posF;
-	int x = sensores.posC;
-	// cout << x << " " << y << endl;
-	int cont = 0;
-	int mx, my;
-	Orientacion o = sensores.rumbo;
-	int sgn[2] = {1, -1};
-	// cout << o << endl;
-	int s = sgn[o/4];
-
-	if(o&1) {
-		for(int i=0; i<4; ++i) {
-			for(int j=i;j>0;--j) {
-				switch(o) {
-					case noreste:
-					case suroeste:
-						my = y-s*i;
-						mx = x+s*(i-j);
-						break;
-					case sureste:
-					case noroeste:
-						my = y+s*(i-j);
-						mx = x+s*i;
-						break;
-				}
-				// int p = i, q = i-j;
-				// if(o == sureste || o == noroeste) {
-				// 	p = i-j;
-				// 	q = i;
-				// }
-				// my = y-s*p;
-				// mx = x+s*q;
-				m[my][mx] = sensores.superficie[cont];
-				a[my][mx] = sensores.cota[cont];
-				++cont;
-			}
-
-
-			// Noreste (s=1)
-			//? m[y-i][x+i-j] = sensores.superficie[cont];
-
-			// Sureste (s=1)
-			//? m[y+i-j][x+i] = sensores.superficie[cont];
-
-			// Suroeste (s=-1)
-			//? m[y+i][x-i+j] = sensores.superficie[cont];
-
-			// Noroeste (s=-1)
-			//? m[y-i+j][x-i] = sensores.superficie[cont];
-
-			for(int j=0;j<=i;++j) {
-				switch(o) {
-					case noreste:
-					case suroeste:
-						my = y-s*(i-j);
-						mx = x+s*i;
-						break;
-					case sureste:
-					case noroeste:
-						my = y+s*i;
-						mx = x+s*(i-j);
-						break;
-				}
-				// int p = i, q = i-j;
-				// if(o == sureste || o == noroeste) {
-				// 	p = i-j;
-				// 	q = i;
-				// }
-				// my = y-s*p;
-				// mx = x+s*q;
-				m[my][mx] = sensores.superficie[cont];
-				a[my][mx] = sensores.cota[cont];
-				++cont;
-			}
-
-			// Noreste (s=1)
-			//? m[y-i+j][x+i] = sensores.superficie[cont];
-
-			// Sureste (s=1)
-			//? m[y+i][x+i-j] = sensores.superficie[cont];
-			
-			// Suroeste (s=-1)
-			//? m[y+i-j][x-i] = sensores.superficie[cont];
-
-			// Noroeste (s=-1)
-			//? m[y-i][x-i+j] = sensores.superficie[cont];
-		}
-	}
-	else {
-
-		for(int i=0; i<4; ++i) {
-			for(int j=-i;j<=i;++j) {
-				switch (o) {
-					case norte:
-					case sur:
-						mx = x + s*j;
-						my = y - s*i;
-						break;
-					case este:
-					case oeste:
-						mx = x + s*i;
-						my = y + s*j;
-						break;
-				}
-				// cout << mx-x << " " << my-y << endl;
-				m[my][mx] = sensores.superficie[cont];
-				a[my][mx] = sensores.cota[cont];
-				++cont;
-			}
-		}
-	}
-
-
-	// Norte
-	//? m[x+j][y-i] = sensores.superficie[cont];
-
-	// Sur	
-	//? m[x-j][y+i] = sensores.superficie[cont];
-
-	// Este
-	//? m[x+i][y+j] = sensores.superficie[cont];
-
-	// Oeste
-	//? m[x-i][y-j] = sensores.superficie[cont];
-	
+	int f = sensores.posF;
+	int c = sensores.posC;
+	pair<int,int> orig = {f, c};
+	for(int i=0; i<16; ++i) {
+		// Convierte la posición del sensor en la posición del mapa
+		pair<int,int> casilla = VtoM(i, sensores.rumbo, orig);
+		int nf = casilla.first;
+		int nc = casilla.second;
+		m[nf][nc] = sensores.superficie[i];
+		a[nf][nc] = sensores.cota[i];
+	}	
 }
 
 Action ComportamientoRescatador::ComportamientoRescatadorNivel_0(Sensores sensores)
@@ -305,6 +240,7 @@ Action ComportamientoRescatador::ComportamientoRescatadorNivel_0(Sensores sensor
 	Action action;
 
 	SituarSensorEnMapa(mapaResultado, mapaCotas, sensores);
+	mapaFrecuencias[sensores.posF][sensores.posC]++;
 
 	if(sensores.superficie[0] == 'D') {
 		tiene_zapatillas = true;
@@ -354,12 +290,17 @@ Action ComportamientoRescatador::ComportamientoRescatadorNivel_0(Sensores sensor
 
 		// Casilla genérica
 		for(int i=1; i<16; ++i) {
-			transitable[i] = (sensores.superficie[i] != 'P' && sensores.superficie[i] != 'M' && (sensores.superficie[i] != 'B' || tiene_zapatillas) );
-			accesible[i] = transitable[i] && ViablePorAltura(sensores.superficie[i], sensores.superficie[i]-sensores.superficie[0], tiene_zapatillas);
+			transitable[i] = (sensores.superficie[i] != 'P' && sensores.superficie[i] != 'M' && sensores.superficie[i] != 'B');
+			accesible[i] = transitable[i] && ViablePorAltura(sensores.cota[i]-sensores.cota[0], tiene_zapatillas);
 		}
 
-		int pos = TomarDecision(sensores.superficie, sensores.cota, accesible, transitable, tiene_zapatillas);
-		switch(pos) {
+		vector<int> casillas_interesantes;
+		vector<bool> is_interesting(16, false);
+		CasillasInteresantes(sensores, accesible, transitable, is_interesting, casillas_interesantes, tiene_zapatillas);
+
+		int decision = SelectCasilla(sensores, casillas_interesantes, is_interesting, tiene_zapatillas);
+		// cout << "Go to " << decision << endl;
+		switch(decision) {
 			case 1: 
 				// Casilla interesante a la izquierda
 				giro45izq = 1;
