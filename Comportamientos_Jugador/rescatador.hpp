@@ -23,6 +23,9 @@ public:
 		tiene_zapatillas = false;
 		acciones_pendientes.resize(4, 0);
 		num_acciones = 0;
+		decision = -1;
+		contador = 0;
+		baneados.resize(16, false);
 		mapaFrecuencias.resize(size, vector<int>(size, 0));
 	}
 
@@ -148,7 +151,7 @@ public:
 	 */
 	int SelectCasilla (const Sensores & sensores, const vector<int> & casillas_interesantes, 
 			const vector<bool> & is_interesting);
-
+	
 	/**
 	 * @brief Selecciona la casilla más interesante de entre las que puede ir con un giro y un avance
 	 * @param orig Posición del agente
@@ -167,7 +170,7 @@ public:
 	 * 		
 	 */
 	int SelectCasillaAllAround (const pair<int,int> & orig, const vector<int> & casillas_interesantes, 
-		const vector<bool> & is_interesting, Orientacion rumbo);
+		const vector<bool> & is_interesting, Orientacion rumbo, bool zap);
 	
 	/**
 	 * @brief Selecciona la acción a realizar
@@ -198,8 +201,11 @@ private:
 
 	Action last_action;
 	bool tiene_zapatillas;
+	int decision;
 	vector<int> acciones_pendientes; // [TURN_L, TURN_SR, WALK, RUN]
 	int num_acciones;
+	int contador;
+	vector<bool> baneados;
 	vector<vector<int>> mapaFrecuencias;
 };
 

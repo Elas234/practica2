@@ -174,15 +174,16 @@ void ComportamientoRescatador::CasillasInteresantesAllAround(const pair<int,int>
 	casillas_interesantes.clear();
 	
 	for(char x : RELEVANT) {
-		if(x == 'D' && zap) continue;
 		for(int i=0; i<ALCANZABLES; ++i) {
+			if(baneados[i]) continue;
 			int level = 1+(i/8);
 			int pos = i&7; // i%8
 			int nf = f + level * sf[pos];
 			int nc = c + level * sc[pos];
 			if(mapaResultado[nf][nc] == x && accesible[i]) {
 				if(level==2 && !transitable[pos]) continue;
-				if(x=='X' || x=='D') {
+				if(x=='X' || (x=='D' && !zap)) {
+					if(x=='X' && mapaEntidades[nf][nc] == 'a') continue;
 					casillas_interesantes.clear();
 					casillas_interesantes.push_back(i);
 					return;
@@ -282,13 +283,14 @@ int ComportamientoRescatador::SelectCasilla (const Sensores & sensores, const ve
 }
 
 int ComportamientoRescatador::SelectCasillaAllAround (const pair<int,int> & orig, const vector<int> & casillas_interesantes, 
-	const vector<bool> & is_interesting, Orientacion rumbo) {
+	const vector<bool> & is_interesting, Orientacion rumbo, bool zap) {
 
 	const int ALCANZABLES = 16;
-	const int NUM_RELEVANT = 3;
+	const int NUM_RELEVANT = 4;
+	int puntos_zapatillas = zap ? 50 : 10;
 
-	const char RELEVANT[NUM_RELEVANT] = {'X', 'D', 'C'};
-	const int POINTS[NUM_RELEVANT] = {100, 50, 10};
+	const char RELEVANT[NUM_RELEVANT] = {'X', 'D', '?', 'C'};
+	const int POINTS[NUM_RELEVANT] = {100, puntos_zapatillas, 10, 10};
 
 	if(casillas_interesantes.size() == 0) return -1;
 	if(casillas_interesantes.size() == 1) return casillas_interesantes[0];
@@ -357,11 +359,11 @@ int ComportamientoRescatador::SelectCasillaAllAround (const pair<int,int> & orig
 		}
 	}
 
-	cout << "Puntuaciones: " << endl;
-	for(int i=0; i<ALCANZABLES; ++i) {
-		cout << i << ": " << puntuacion_destino[i] << endl;
-	}
-	cout << "Ganador: " << decision << endl;
+	// cout << "Puntuaciones: " << endl;
+	// for(int i=0; i<ALCANZABLES; ++i) {
+	// 	cout << i << ": " << puntuacion_destino[i] << endl;
+	// }
+	// cout << "Ganador: " << decision << endl;
 
 	return decision;
 }
@@ -424,18 +426,20 @@ Action ComportamientoRescatador::ComportamientoRescatadorNivel_0(Sensores sensor
 	*/
 
 	Action action;
-	
-	// if(num_acciones % 200 == 0) {
-	// 	// Inicializo el mapa de frecuencias
+
+	// Si está atascado, resetea el mapa de frecuencias
+	// const int NUM_ACCIONES_ATASCO = 2000;
+	// if(num_acciones == NUM_ACCIONES_ATASCO) {
 	// 	for(int i=0; i<mapaFrecuencias.size(); ++i) {
-	// 		for(int j=0; j<mapaFrecuencias[i].size(); ++j) {
-	// 			mapaFrecuencias[i][j] = 0;
-	// 		}
+	// 		fill(mapaFrecuencias[i].begin(), mapaFrecuencias[i].end(), 0);
 	// 	}
 	// }
 
+	int f = sensores.posF;
+	int c = sensores.posC;
+
 	SituarSensorEnMapa(sensores);
-	mapaFrecuencias[sensores.posF][sensores.posC]++;
+	mapaFrecuencias[f][c]++;
 
 	if(sensores.superficie[0] == 'D') {
 		tiene_zapatillas = true;
@@ -460,8 +464,6 @@ Action ComportamientoRescatador::ComportamientoRescatadorNivel_0(Sensores sensor
 		// Casillas a las que puedo acceder (accesible ==> transitable pero no al revés)
 		vector<bool> accesible(16);
 
-		int f = sensores.posF;
-		int c = sensores.posC;
 		for(int i=0; i<16; ++i) {
 
 			int level = 1+(i/8);
@@ -472,7 +474,7 @@ Action ComportamientoRescatador::ComportamientoRescatadorNivel_0(Sensores sensor
 			int h = mapaCotas[nf][nc];
 			char e = mapaEntidades[nf][nc];
 
-			transitable[i] = (s != 'P' && s != 'M' && s != 'B' && s != '?' && e == '_');
+			transitable[i] = (s != 'P' && s != 'M' && s != 'B' && s != '?' && e != 'a' && !baneados[i]);
 			accesible[i] = transitable[i] && ViablePorAltura(h-mapaCotas[f][c], tiene_zapatillas);
 		}
 
@@ -482,28 +484,36 @@ Action ComportamientoRescatador::ComportamientoRescatadorNivel_0(Sensores sensor
 		// CasillasInteresantes(sensores, accesible, transitable, is_interesting, casillas_interesantes, tiene_zapatillas);
 		CasillasInteresantesAllAround({f,c}, accesible, transitable, is_interesting, casillas_interesantes, tiene_zapatillas);
 		// int decision = SelectCasilla(sensores, casillas_interesantes, is_interesting);
-		int decision = SelectCasillaAllAround({f,c}, casillas_interesantes, is_interesting, sensores.rumbo);
+		decision = SelectCasillaAllAround({f,c}, casillas_interesantes, is_interesting, sensores.rumbo, tiene_zapatillas);
 		action = SelectAction(decision, sensores.rumbo);
 	}
 
+	if(num_acciones - contador == 10) {
+		fill(baneados.begin(), baneados.end(), false);
+	}
+
 	/*-------------------------------------------------------------*/
-	// Si el sensor de la izquierda o el de la derecha no son transitables, doy media vuelta
+	// Si me voy a chocar, doy media vuelta
 	if((action == WALK && sensores.agentes[2] != '_') || (action == RUN && (sensores.agentes[6] != '_' || sensores.agentes[2] != '_'))) {
 		// Resetea movimientos peligrosos
-		cout << "Rescatador: me voy a chocar, doy la vuelta" << endl;
+		// cout << "Rescatador: me voy a chocar, doy la vuelta" << endl;
 		fill(acciones_pendientes.begin(), acciones_pendientes.end(), 0);
-		acciones_pendientes[TURN_L_pendientes] = 1;
-		action = TURN_L;
+		acciones_pendientes[TURN_SR_pendientes] = 3;
+		action = TURN_SR;
+		baneados[decision] = true;
+		contador = num_acciones;
 	}
 
 	// Resetea mapa de entidades
-	for(int i=0; i<mapaEntidades.size(); ++i) {
-		for(int j=0; j<mapaEntidades[i].size(); ++j) {
-			if(mapaResultado[i][j] != 'X' || mapaEntidades[i][j] != 'a') {
-				mapaEntidades[i][j] = '_';
-			}
+	for(int i=0; i<16; ++i) {
+		pair<int,int> casilla = VtoM(i, sensores.rumbo, {f,c});
+		int nf = casilla.first;
+		int nc = casilla.second;
+		if(mapaResultado[nf][nc] != 'X' || mapaEntidades[nf][nc] != 'a') {
+			mapaEntidades[nf][nc] = '?';
 		}
 	}
+
 
 
 	last_action = action;

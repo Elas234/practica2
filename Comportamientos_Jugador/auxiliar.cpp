@@ -44,7 +44,7 @@ int ComportamientoAuxiliar::interact(Action accion, int valor)
 
 /*********************************** NIVEL 0 **********************************************/
 
-pair<int, int> ComportamientoAuxiliar::VtoM(int i, Orientacion rumbo, pair<int, int> & orig)
+pair<int, int> ComportamientoAuxiliar::VtoM(int i, Orientacion rumbo, const pair<int, int> & orig)
 {
 	const int level[16] = {0,1,1,1,2,2,2,2,2,3,3,3,3,3,3,3};
 	const int dist[16] = {0,-1,0,1,-2,-1,0,1,2,-3,-2,-1,0,1,2,3};
@@ -69,10 +69,6 @@ pair<int, int> ComportamientoAuxiliar::VtoM(int i, Orientacion rumbo, pair<int, 
 
 void ComportamientoAuxiliar::SituarSensorEnMapa(const Sensores & sensores) {
 	
-	/******************************************************************************/
-
-	// NUEVA VERSIÓN CON VTOM
-
 	int f = sensores.posF;
 	int c = sensores.posC;
 	pair<int,int> orig = {f, c};
@@ -86,107 +82,6 @@ void ComportamientoAuxiliar::SituarSensorEnMapa(const Sensores & sensores) {
 			mapaEntidades[nf][nc] = 'r';
 		}
 	}
-
-	/******************************************************************************/
-
-	// VERSIÓN ANTERIOR 
-
-	// int y = sensores.posF;
-	// int x = sensores.posC;
-	// int cont = 0;
-	// int mx, my;
-	// Orientacion o = sensores.rumbo;
-	// int sgn[2] = {1, -1};
-	// int s = sgn[o/4];
-
-	// if(o&1) {
-	// 	for(int i=0; i<4; ++i) {
-	// 		for(int j=i;j>0;--j) {
-	// 			switch(o) {
-	// 				case noreste:
-	// 				case suroeste:
-	// 					my = y-s*i;
-	// 					mx = x+s*(i-j);
-	// 					break;
-	// 				case sureste:
-	// 				case noroeste:
-	// 					my = y+s*(i-j);
-	// 					mx = x+s*i;
-	// 					break;
-	// 			}
-	// 			m[my][mx] = sensores.superficie[cont];
-	// 			a[my][mx] = sensores.cota[cont];
-	// 			++cont;
-	// 		}
-
-
-	// 		// Noreste (s=1)
-	// 		//? m[y-i][x+i-j] = sensores.superficie[cont];
-
-	// 		// Sureste (s=1)
-	// 		//? m[y+i-j][x+i] = sensores.superficie[cont];
-
-	// 		// Suroeste (s=-1)
-	// 		//? m[y+i][x-i+j] = sensores.superficie[cont];
-
-	// 		// Noroeste (s=-1)
-	// 		//? m[y-i+j][x-i] = sensores.superficie[cont];
-
-	// 		for(int j=0;j<=i;++j) {
-	// 			switch(o) {
-	// 				case noreste:
-	// 				case suroeste:
-	// 					my = y-s*(i-j);
-	// 					mx = x+s*i;
-	// 					break;
-	// 				case sureste:
-	// 				case noroeste:
-	// 					my = y+s*i;
-	// 					mx = x+s*(i-j);
-	// 					break;
-	// 			}
-	// 			m[my][mx] = sensores.superficie[cont];
-	// 			a[my][mx] = sensores.cota[cont];
-	// 			++cont;
-	// 		}
-	// 	}
-	// }
-	// else {
-
-	// 	for(int i=0; i<4; ++i) {
-	// 		for(int j=-i;j<=i;++j) {
-	// 			switch (o) {
-	// 				case norte:
-	// 				case sur:
-	// 					mx = x + s*j;
-	// 					my = y - s*i;
-	// 					break;
-	// 				case este:
-	// 				case oeste:
-	// 					mx = x + s*i;
-	// 					my = y + s*j;
-	// 					break;
-	// 			}
-	// 			m[my][mx] = sensores.superficie[cont];
-	// 			a[my][mx] = sensores.cota[cont];
-	// 			++cont;
-	// 		}
-	// 	}
-	// }
-
-
-	// Norte
-	//? m[x+j][y-i] = sensores.superficie[cont];
-
-	// Sur	
-	//? m[x-j][y+i] = sensores.superficie[cont];
-
-	// Este
-	//? m[x+i][y+j] = sensores.superficie[cont];
-
-	// Oeste
-	//? m[x-i][y-j] = sensores.superficie[cont];
-	
 }
 
 bool ComportamientoAuxiliar::TengoTareasPendientes(const Sensores & sensores, Action & action) {
@@ -305,10 +200,10 @@ int ComportamientoAuxiliar::SelectCasillaAllAround(const pair<int,int> & orig, c
 {
 
 	const int ALCANZABLES = 8;
-	const int NUM_RELEVANT = 2;
+	const int NUM_RELEVANT = 4;
 
-	const char RELEVANT[NUM_RELEVANT] = {'X', 'C'};
-	const int POINTS[NUM_RELEVANT] = {100, 10};
+	const char RELEVANT[NUM_RELEVANT] = {'X', '?', 'D', 'C'};
+	const int POINTS[NUM_RELEVANT] = {100, 10, 10, 10};
 
 	if(casillas_interesantes.size() == 0) return -1;
 	if(casillas_interesantes.size() == 1) return casillas_interesantes[0];
@@ -336,8 +231,10 @@ int ComportamientoAuxiliar::SelectCasillaAllAround(const pair<int,int> & orig, c
 	int peso_frecuencia_adyacentes = 5;
 	int peso_frecuencia = 10;
 	int puntuacion_destino[ALCANZABLES] = {0};
-	int puntuaciones_iniciales[ALCANZABLES] = 
+	int puntuaciones_iniciales[ALCANZABLES] = // {0};
 	{100, 50, 10, 5, 1, 5 , 10, 50};
+	// {100, 50, 10, 5, 1, 5 , 10, 50};
+	// {50, 100, 50, 30, 10, 5 , 10, 30};
 
 	for(int i=0; i<ALCANZABLES; ++i) {
 		if(!is_interesting[(rumbo+i)%8]) continue;
@@ -373,11 +270,11 @@ int ComportamientoAuxiliar::SelectCasillaAllAround(const pair<int,int> & orig, c
 		}
 	}
 
-	cout << "Puntuaciones: " << endl;
-	for(int i=0; i<ALCANZABLES; ++i) {
-		cout << i << ": " << puntuacion_destino[i] << endl;
-	}
-	cout << "Ganador: " << decision << endl;
+	// cout << "Puntuaciones: " << endl;
+	// for(int i=0; i<ALCANZABLES; ++i) {
+	// 	cout << i << ": " << puntuacion_destino[i] << endl;
+	// }
+	// cout << "Ganador: " << decision << endl;
 
 	return decision;
 
@@ -421,19 +318,21 @@ void ComportamientoAuxiliar::CasillasInteresantesAllAround(const pair<int,int> &
 	int c = orig.second;
 
 	const int ALCANZABLES = 8;
-	const int NUM_RELEVANT = 2;
-	const char RELEVANT[NUM_RELEVANT] = {'X', 'C'};
+	const int NUM_RELEVANT = 3;
+	const char RELEVANT[NUM_RELEVANT] = {'X', 'D', 'C'};
 
 	is_interesting.resize(ALCANZABLES, false);
 	casillas_interesantes.clear();
 
 	for(char x : RELEVANT) {
 		for(int i=0; i<ALCANZABLES; ++i) {
+			if(baneados[i]) continue;
 			int nf = f + sf[i];
 			int nc = c + sc[i];
+
 			if(mapaResultado[nf][nc] == x && accesible[i]) {
-				if(mapaEntidades[nf][nc] != '_') continue;
 				if(x=='X') {
+					if(mapaEntidades[nf][nc] == 'r') continue;
 					casillas_interesantes.clear();
 					casillas_interesantes.push_back(i);
 					return;
@@ -485,16 +384,15 @@ Action ComportamientoAuxiliar::ComportamientoAuxiliarNivel_0(Sensores sensores)
 
 	Action action;
 
-	// if(num_acciones % 1000 == 0) {
-	// 	// Inicializo el mapa de frecuencias
+	// Actualización de variables de estado
+
+	// Si está atascado, resetea el mapa de frecuencias
+	// const int NUM_ACCIONES_ATASCO = 1000;
+	// if(num_acciones == NUM_ACCIONES_ATASCO) {
 	// 	for(int i=0; i<mapaFrecuencias.size(); ++i) {
-	// 		for(int j=0; j<mapaFrecuencias[i].size(); ++j) {
-	// 			mapaFrecuencias[i][j] = 0;
-	// 		}
+	// 		fill(mapaFrecuencias[i].begin(), mapaFrecuencias[i].end(), 0);
 	// 	}
 	// }
-
-	// Actualización de variables de estado
 
 	SituarSensorEnMapa(sensores);
 	mapaFrecuencias[sensores.posF][sensores.posC]++;
@@ -512,6 +410,9 @@ Action ComportamientoAuxiliar::ComportamientoAuxiliarNivel_0(Sensores sensores)
 		que estoy girando (la pongo a 1) y giro a la derecha
 	*/
 
+	int f = sensores.posF;
+	int c = sensores.posC;
+
 	if (sensores.superficie[0] == 'X') {
 		action = IDLE;
 	}
@@ -522,56 +423,47 @@ Action ComportamientoAuxiliar::ComportamientoAuxiliarNivel_0(Sensores sensores)
 		// Casillas a las que puedo acceder (accesible ==> transitable pero no al revés)
 		vector<bool> accesible(8);
 
-		// Casilla genérica
-		// for(int i=1; i<16; ++i) {
-		// 	transitable[i] = (sensores.superficie[i] != 'P' && sensores.superficie[i] != 'M' && (sensores.superficie[i] != 'B' || tiene_zapatillas) );
-		// 	accesible[i] = transitable[i] && ViablePorAltura(sensores.cota[i]-sensores.cota[0]);
-		// }
-
-		int f = sensores.posF;
-		int c = sensores.posC;
 		for(int i=0; i<8; ++i) {
 			int nf = f + sf[i];
 			int nc = c + sc[i];
 			char s = mapaResultado[nf][nc];
 			int h = mapaCotas[nf][nc];
 			char e = mapaEntidades[nf][nc];
-			transitable[i] = (s != 'P' && s != 'M' && (s != 'B' || tiene_zapatillas) && s != '?' && e == '_');
+
+			transitable[i] = (s != 'P' && s != 'M' && (s != 'B' || tiene_zapatillas) && s != '?' && e != 'a' && !baneados[i]);
 			accesible[i] = transitable[i] && ViablePorAltura(h-mapaCotas[f][c]);
 		}
 
 		vector<int> casillas_interesantes;
 		vector<bool> is_interesting(8, false);
 
-		// CasillasInteresantes(sensores, accesible, is_interesting, casillas_interesantes);
-		// int decision = SelectCasilla(sensores, casillas_interesantes, is_interesting);
-
 		CasillasInteresantesAllAround({f,c}, accesible, is_interesting, casillas_interesantes);
 
-		cout << "Casillas interesantes: ";
-		for(int i=0; i<casillas_interesantes.size(); ++i) {
-			cout << casillas_interesantes[i] << " ";
-		}
-		cout << endl;
-		int decision = SelectCasillaAllAround({f,c}, casillas_interesantes, is_interesting, sensores.rumbo);
+		decision = SelectCasillaAllAround({f,c}, casillas_interesantes, is_interesting, sensores.rumbo);
 		action = SelectAction(decision, sensores.rumbo);
 
 	}
 
+	if(num_acciones - contador == 10) {
+		fill(baneados.begin(), baneados.end(), false);
+	}
+
 	if((action == WALK && sensores.agentes[2] != '_')) {
 		// Resetea movimientos peligrosos
-		cout << "Auxiliar: me voy a chocar, doy la vuelta" << endl;
 		fill(acciones_pendientes.begin(), acciones_pendientes.end(), 0);
 		acciones_pendientes[TURN_SR_pendientes] = 3;
 		action = TURN_SR;
+		baneados[decision] = true;
+		contador = num_acciones;
 	}
 
 	// Resetea mapa de entidades
-	for(int i=0; i<mapaEntidades.size(); ++i) {
-		for(int j=0; j<mapaEntidades[i].size(); ++j) {
-			if(mapaResultado[i][j] != 'X' || mapaEntidades[i][j] != 'r') {
-				mapaEntidades[i][j] = '_';
-			}
+	for(int i=0; i<16; ++i) {
+		pair<int,int> casilla = VtoM(i, sensores.rumbo, {f,c});
+		int nf = casilla.first;
+		int nc = casilla.second;
+		if(mapaResultado[nf][nc] != 'X' || mapaEntidades[nf][nc] != 'r') {
+			mapaEntidades[nf][nc] = '?';
 		}
 	}
 

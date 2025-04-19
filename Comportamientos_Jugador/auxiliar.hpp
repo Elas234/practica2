@@ -48,6 +48,9 @@ public:
 		tiene_zapatillas = false;
 		acciones_pendientes.resize(2, 0);
 		num_acciones = 0;
+		contador = 0;
+		baneados.resize(16, false);
+		decision = -1;
 		mapaFrecuencias.resize(size, vector<int>(size, 0));
 	}
 	/**
@@ -95,7 +98,7 @@ public:
 	 * @param orig Posición del agente
 	 * @return Posición de la casilla en el mapa
 	 */
-	pair<int, int> VtoM(int i, Orientacion rumbo, pair<int, int> & orig);
+	pair<int, int> VtoM(int i, Orientacion rumbo, const pair<int, int> & orig);
 
 	/**
 	 * @brief Coloca el sensor en el mapa (lo "pinta")
@@ -170,6 +173,7 @@ public:
 	int SelectCasilla(const Sensores & sensores, const vector<int> & casillas_interesantes, 
 		const vector<bool> & is_interesting);
 
+
 	/**
 	 * @brief Selecciona la casilla más interesante de entre las que puede ir con un giro y un avance
 	 * @param orig Posición del agente
@@ -228,6 +232,9 @@ private:
 
 	Action last_action;
 	bool tiene_zapatillas;
+	vector<bool> baneados;
+	int decision;
+	int contador;
 	vector<int> acciones_pendientes; // [TURN_SR, WALK]
 	int num_acciones;
 	vector< vector<int> > mapaFrecuencias;
