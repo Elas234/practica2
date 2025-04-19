@@ -51,7 +51,7 @@ class Comportamiento {
     Comportamiento(vector< vector< unsigned char> > mapaR, vector< vector< unsigned char> > mapaC );
     Comportamiento(const Comportamiento & comport) : mapaEntidades(comport.mapaEntidades), mapaResultado(comport.mapaResultado), mapaCotas(comport.mapaCotas), mapaConPlan(comport.mapaConPlan) {}
     Comportamiento * clone(){return new Comportamiento(*this);}
-    ~Comportamiento(){}
+    virtual ~Comportamiento(){}
 
     virtual Action think(Sensores sensores);
 
