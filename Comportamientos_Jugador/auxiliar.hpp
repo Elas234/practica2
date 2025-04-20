@@ -157,6 +157,23 @@ public:
 		vector<bool> & is_interesting, vector<int> & casillas_interesantes);
 
 	/**
+	 * @brief Selecciona las casillas interesantes alrededor del agente
+	 * @param orig Posición del agente
+	 * @param accesible Casillas accesibles
+	 * @param is_interesting Casillas interesantes. Parámetro de salida
+	 * @param casillas_interesantes Casillas interesantes. Parámetro de salida
+	 * @param zap Si el agente tiene zapatillas
+	 * 
+	 * @note Las casillas seleccionadas son enteros relativos a la posición del agente:
+	 * 
+	 * 		7	0	1
+	 * 		6	^	2
+	 * 		5	4	3
+	 */
+	void CasillasInteresantesAllAround_LVL1 (const pair<int,int> & orig, const vector<bool> & accesible, 
+		vector<bool> & is_interesting, vector<int> & casillas_interesantes);
+
+	/**
 	 * @brief Selecciona la casilla más interesante de entre las que puede ir con un giro y un avance
 	 * @param sensores Sensores del agente
 	 * @param casillas_interesantes Casillas interesantes
@@ -189,6 +206,23 @@ public:
 	 * 		5	4	3	
 	 */
 	int SelectCasillaAllAround(const pair<int,int> & orig, const vector<int> & casillas_interesantes, 
+		const vector<bool> & is_interesting, Orientacion rumbo);
+
+	/**
+	 * @brief Selecciona la casilla más interesante de entre las que puede ir con un giro y un avance
+	 * @param orig Posición del agente
+	 * @param casillas_interesantes Casillas interesantes
+	 * @param is_interesting Casillas interesantes
+	 * @param rumbo Dirección en la que está mirando el agente
+	 * @return Casilla seleccionada
+	 * 
+	 * @note La casilla seleccionada es un entero relativo a la posición del agente:
+	 * 
+	 * 		7	0	1	
+	 * 		6	^	2
+	 * 		5	4	3	
+	 */
+	int SelectCasillaAllAround_LVL1(const pair<int,int> & orig, const vector<int> & casillas_interesantes, 
 		const vector<bool> & is_interesting, Orientacion rumbo);
 	
 	/**

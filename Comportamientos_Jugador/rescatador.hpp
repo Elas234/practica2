@@ -134,6 +134,9 @@ public:
 	 */
 	void CasillasInteresantesAllAround(const pair<int,int> & orig, const vector<bool> & accesible, 
 		const vector<bool> & transitable, vector<bool> & is_interesting, vector<int> & casillas_interesantes, bool zap);
+
+	void CasillasInteresantesAllAround_LVL1(const pair<int,int> & orig, const vector<bool> & accesible, 
+		const vector<bool> & transitable, vector<bool> & is_interesting, vector<int> & casillas_interesantes, bool zap);
 	/**
 	 * @brief Selecciona la casilla más interesante
 	 * @param sensores Sensores del agente
@@ -171,6 +174,10 @@ public:
 	 */
 	int SelectCasillaAllAround (const pair<int,int> & orig, const vector<int> & casillas_interesantes, 
 		const vector<bool> & is_interesting, Orientacion rumbo, bool zap);
+
+	int SelectCasillaAllAround_LVL1 (const pair<int,int> & orig, const vector<int> & casillas_interesantes, 
+		const vector<bool> & is_interesting, Orientacion rumbo, bool zap);
+		
 	
 	/**
 	 * @brief Selecciona la acción a realizar

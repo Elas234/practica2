@@ -1,5 +1,6 @@
 #include "../Comportamientos_Jugador/auxiliar.hpp"
 #include <iostream>
+#include <math.h>
 #include "motorlib/util.h"
 
 #define TURN_SR_pendientes 0
@@ -20,7 +21,7 @@ Action ComportamientoAuxiliar::think(Sensores sensores)
 		accion = ComportamientoAuxiliarNivel_0(sensores);
 		break;
 	case 1:
-		// accion = ComportamientoAuxiliarNivel_1 (sensores);
+		accion = ComportamientoAuxiliarNivel_1 (sensores);
 		break;
 	case 2:
 		// accion = ComportamientoAuxiliarNivel_2 (sensores);
@@ -195,13 +196,193 @@ int ComportamientoAuxiliar::SelectCasilla(const Sensores & sensores, const vecto
 	return decision;
 }
 
+int ComportamientoAuxiliar::SelectCasillaAllAround_LVL1(const pair<int,int> & orig, const vector<int> & casillas_interesantes, 
+	const vector<bool> & is_interesting, Orientacion rumbo) 
+{
+	const int ALCANZABLES = 8;
+	const int NUM_RELEVANT = 5;
+	
+	const char RELEVANT[NUM_RELEVANT] = {'X', '?', 'D', 'C', 'S'};
+	const int POINTS[NUM_RELEVANT] = {10, 10, 10, 10, 10};
+
+	if(casillas_interesantes.size() == 0) return -1;
+	if(casillas_interesantes.size() == 1) return casillas_interesantes[0];
+
+	// Hay más de una, me voy por donde haya más y mejores casillas interesantes
+
+	// Matriz de decisión
+
+	// Cada casilla accesible tiene un valor asociado que depende de las 3 casillas que tiene enfrente
+
+	const int CASILLAS_POR_SECCION = 3;
+	const pair<int,int> M[ALCANZABLES][CASILLAS_POR_SECCION] = 
+	{
+		{{-1,-1},{-1, 0},{-1, 1}}, // ir a 0
+		{{-1, 0},{-1, 1},{ 0, 1}}, // ir a 1
+		{{-1, 1},{ 0, 1},{ 1, 1}}, // ir a 2
+		{{ 0, 1},{ 1, 1},{ 1, 0}}, // ir a 3
+		{{ 1, 1},{ 1, 0},{ 1,-1}}, // ir a 4
+		{{ 1, 0},{ 1,-1},{ 0,-1}}, // ir a 5
+		{{ 1,-1},{ 0,-1},{-1,-1}}, // ir a 6
+		{{ 0,-1},{-1,-1},{-1, 0}}  // ir a 7
+	};
+
+	int peso_altura = 1;
+	int peso_frecuencia_adyacentes = 5;
+	int peso_frecuencia = 10;
+	int puntuacion_destino[ALCANZABLES] = {0};
+	int puntuaciones_iniciales[ALCANZABLES] = // {0};
+	{100, 50, 10, 5, 1, 5 , 10, 50};
+	// {100, 50, 10, 5, 1, 5 , 10, 50};
+	// {50, 100, 50, 30, 10, 5 , 10, 30};
+
+	for(int i=0; i<ALCANZABLES; ++i) {
+		if(!is_interesting[(rumbo+i)%8]) continue;
+		puntuacion_destino[(rumbo+i)%8] = puntuaciones_iniciales[i];
+	}
+	int max_points = -INF;
+	int decision = 0;
+	for(int i=0; i<ALCANZABLES; ++i) {
+		if(!is_interesting[i]) continue;
+		int f = orig.first + sf[i];
+		int c = orig.second + sc[i];
+		for(int j=0; j<CASILLAS_POR_SECCION; ++j) {
+			for(int k=0; k<NUM_RELEVANT; ++k) {
+				int nf = f + M[i][j].first;
+				int nc = c + M[i][j].second;
+				char x = mapaResultado[nf][nc];
+				int h = mapaCotas[nf][nc];
+				char a = mapaEntidades[nf][nc];
+				if(x == RELEVANT[k]) {
+					// No considero las casillas objetivo con agentes
+					if(a == 'r') continue;
+					
+					// Puntuación de casillas adyacentes
+					puntuacion_destino[i] += (POINTS[k] - peso_frecuencia_adyacentes*mapaFrecuencias[nf][nc] - peso_altura*abs(h-mapaCotas[f][c]));
+				}
+			}
+		}
+		puntuacion_destino[i] -= (peso_frecuencia * mapaFrecuencias[f][c]);
+		// Actualizar máximo
+		if(puntuacion_destino[i] >= max_points) {
+			max_points = puntuacion_destino[i];
+			decision = i;
+		}
+	}
+
+	// cout << "Puntuaciones: " << endl;
+	// for(int i=0; i<ALCANZABLES; ++i) {
+	// 	cout << i << ": " << puntuacion_destino[i] << endl;
+	// }
+	// cout << "Ganador: " << decision << endl;
+
+	return decision;
+}
+
+// int ComportamientoAuxiliar::SelectCasillaAllAround_LVL1(const pair<int,int> & orig, const vector<int> & casillas_interesantes, 
+// 	const vector<bool> & is_interesting, Orientacion rumbo) 
+// {
+	// const int ALCANZABLES = 8;
+	// const int NUM_RELEVANT = 5;
+	// const int LENGTH = 1;
+	// const int WIDTH = 3;
+	// int sup = WIDTH/2;
+	// int inf = -sup;
+	// const int K = sqrt(LENGTH*WIDTH);
+	
+	// const char RELEVANT[NUM_RELEVANT] = {'X', '?', 'D', 'C', 'S'};
+	// const int POINTS[NUM_RELEVANT] = {10, 20, 10, 10, 10};
+
+	// if(casillas_interesantes.size() == 0) return -1;
+	// if(casillas_interesantes.size() == 1) return casillas_interesantes[0];
+
+	// // Hay más de una, me voy por donde haya más y mejores casillas interesantes
+
+	// int peso_frecuencia_adyacentes = 2;
+	// int peso_frecuencia = 10;
+	// int puntuacion_destino[ALCANZABLES] = {0};
+	// int puntuaciones_iniciales[ALCANZABLES] = // {0};
+	// {100, 50, 10, 5, 1, 5 , 10, 50};
+	// // {100, 50, 10, 5, 1, 5 , 10, 50};
+	// // {50, 100, 50, 30, 10, 5 , 10, 30};
+
+	// for(int i=0; i<ALCANZABLES; ++i) {
+	// 	if(!is_interesting[(rumbo+i)%8]) continue;
+	// 	puntuacion_destino[(rumbo+i)%8] = K*puntuaciones_iniciales[i];
+	// }
+
+	// const int df[ALCANZABLES] = { 0, 1, 1, 0, 0,-1,-1, 0};
+	// const int dc[ALCANZABLES] = { 1, 0, 0,-1,-1, 0, 0, 1};
+
+	// const int MAX_F = mapaResultado.size();
+	// const int MAX_C = mapaResultado[0].size();
+
+	// int max_points = -INF;
+	// int decision = -1;
+	// vector<vector<pair<int,int>>> casillas(ALCANZABLES);
+	// for(int pos=0; pos<ALCANZABLES; ++pos) {
+	// 	if(!is_interesting[pos]) continue;
+	// 	int f = orig.first + sf[pos];
+	// 	int c = orig.second + sc[pos];
+
+	// 	// View ray
+	// 	for(int i=1; i<=LENGTH; ++i) {
+	// 		for(int j=inf; j<=sup; ++j) {
+	// 			int npos = (j<=0 && (pos&1)) ? pos-1 : pos;
+	// 			int nf = f + i*sf[pos] + j*df[npos];
+	// 			int nc = c + i*sc[pos] + j*dc[npos];
+	// 			if(nf < 0 || nc < 0 || nf >= MAX_F || nc >= MAX_C) continue;
+	// 			casillas[pos].push_back({nf, nc});
+	// 			// mapaEntidades[nf][nc] = '.';
+	// 		}
+	// 	}
+
+	// 	// // Imprimir mapa entidades
+	// 	// for(int i=0; i<MAX_F; ++i) {
+	// 	// 	for(int j=0; j<MAX_C; ++j) {
+	// 	// 		cout << mapaEntidades[i][j] << " ";
+	// 	// 	}
+	// 	// 	cout << endl;
+	// 	// }
+	// 	// cout << endl;
+
+	// 	for(int i=0; i<casillas[pos].size(); ++i) {
+	// 		int nf = casillas[pos][i].first;
+	// 		int nc = casillas[pos][i].second;
+	// 		for(int j=0; j<NUM_RELEVANT; ++j) {
+	// 			char x = mapaResultado[nf][nc];
+	// 			if(x == RELEVANT[j]) {
+
+	// 				// Puntuación de casillas adyacentes
+	// 				puntuacion_destino[pos] += (POINTS[j] - peso_frecuencia_adyacentes*mapaFrecuencias[nf][nc]);
+	// 			}
+	// 		}
+	// 	}
+		
+	// 	puntuacion_destino[pos] -= (peso_frecuencia * mapaFrecuencias[f][c]);
+	// 	// Actualizar máximo
+	// 	if(puntuacion_destino[pos] >= max_points) {
+	// 		max_points = puntuacion_destino[pos];
+	// 		decision = pos;
+	// 	}
+	// }
+
+	// // cout << "Puntuaciones: " << endl;
+	// // for(int i=0; i<ALCANZABLES; ++i) {
+	// // 	cout << i << ": " << puntuacion_destino[i] << endl;
+	// // }
+	// // cout << "Ganador: " << decision << endl;
+
+	// return decision;
+// }
+
 int ComportamientoAuxiliar::SelectCasillaAllAround(const pair<int,int> & orig, const vector<int> & casillas_interesantes, 
 	const vector<bool> & is_interesting, Orientacion rumbo)
 {
 
 	const int ALCANZABLES = 8;
 	const int NUM_RELEVANT = 4;
-
+	
 	const char RELEVANT[NUM_RELEVANT] = {'X', '?', 'D', 'C'};
 	const int POINTS[NUM_RELEVANT] = {100, 10, 10, 10};
 
@@ -344,6 +525,34 @@ void ComportamientoAuxiliar::CasillasInteresantesAllAround(const pair<int,int> &
 	}
 }
 
+void ComportamientoAuxiliar::CasillasInteresantesAllAround_LVL1 (const pair<int,int> & orig, const vector<bool> & accesible, 
+	vector<bool> & is_interesting, vector<int> & casillas_interesantes) {
+
+	int f = orig.first;
+	int c = orig.second;
+
+	const int ALCANZABLES = 8;
+	const int NUM_RELEVANT = 4;
+	const char RELEVANT[NUM_RELEVANT] = {'X', 'D', 'C', 'S'};
+
+	is_interesting.resize(ALCANZABLES, false);
+	casillas_interesantes.clear();
+
+	for(char x : RELEVANT) {
+		for(int i=0; i<ALCANZABLES; ++i) {
+			if(baneados[i]) continue;
+			int nf = f + sf[i];
+			int nc = c + sc[i];
+
+			if(mapaResultado[nf][nc] == x && accesible[i]) {
+				is_interesting[i] = true;
+				casillas_interesantes.push_back(i);
+			}
+		}
+	}
+}
+
+
 Action ComportamientoAuxiliar::SelectAction(int decision, Orientacion rumbo)
 {
 	Action action;
@@ -476,7 +685,112 @@ Action ComportamientoAuxiliar::ComportamientoAuxiliarNivel_0(Sensores sensores)
 /*********************************** NIVEL 1 **********************************************/
 Action ComportamientoAuxiliar::ComportamientoAuxiliarNivel_1(Sensores sensores)
 {
+	// El comportamiento de seguir un camino hasta encontrar un puesto base.
+	/*
+		Fase 1: Observar el entorno
+
+		Obtener la información de los sensores, cambia en cada paso,
+		por lo que es necesario utilizar variables de estado.
+
+		Se proponen 3 variables de estado:
+
+		Action last_action;
+		bool tiene_zapatillas;
+		int giro45izq;
+	*/
+
+	Action action;
+
+	// Actualización de variables de estado
+
+	// Si está atascado, resetea el mapa de frecuencias
+	// const int NUM_ACCIONES_ATASCO = 1000;
+	// if(num_acciones == NUM_ACCIONES_ATASCO) {
+	// 	for(int i=0; i<mapaFrecuencias.size(); ++i) {
+	// 		fill(mapaFrecuencias[i].begin(), mapaFrecuencias[i].end(), 0);
+	// 	}
+	// }
+
+	SituarSensorEnMapa(sensores);
+	mapaFrecuencias[sensores.posF][sensores.posC]++;
+
+	if(sensores.superficie[0] == 'D') {
+		tiene_zapatillas = true;
+	}
+
+	/*
+		Fase 2: Actuar
+
+		Giro a la izquierda: TURN_L + TURN_SR
+
+		Hago un giro a la izquierda, guardo en la variable de estado
+		que estoy girando (la pongo a 1) y giro a la derecha
+	*/
+
+	int f = sensores.posF;
+	int c = sensores.posC;
+
+	if(!TengoTareasPendientes(sensores, action)) {
+		// Casillas que puedo atravesar corriendo
+		vector<bool> transitable(8);
+
+		// Casillas a las que puedo acceder (accesible ==> transitable pero no al revés)
+		vector<bool> accesible(8);
+
+		for(int i=0; i<8; ++i) {
+			int nf = f + sf[i];
+			int nc = c + sc[i];
+			char s = mapaResultado[nf][nc];
+			int h = mapaCotas[nf][nc];
+			char e = mapaEntidades[nf][nc];
+
+			transitable[i] = (s != 'P' && s != 'M' && (s != 'B' || tiene_zapatillas) && s != '?' && e != 'a' && !baneados[i]);
+			accesible[i] = transitable[i] && ViablePorAltura(h-mapaCotas[f][c]);
+		}
+
+		vector<int> casillas_interesantes;
+		vector<bool> is_interesting(8, false);
+
+		CasillasInteresantesAllAround_LVL1({f,c}, accesible, is_interesting, casillas_interesantes);
+
+		decision = SelectCasillaAllAround_LVL1({f,c}, casillas_interesantes, is_interesting, sensores.rumbo);
+		action = SelectAction(decision, sensores.rumbo);
+
+	}
+
+	if(num_acciones - contador == 10) {
+		fill(baneados.begin(), baneados.end(), false);
+	}
+
+	if((action == WALK && sensores.agentes[2] != '_')) {
+		// Resetea movimientos peligrosos
+		fill(acciones_pendientes.begin(), acciones_pendientes.end(), 0);
+		acciones_pendientes[TURN_SR_pendientes] = 3;
+		action = TURN_SR;
+		baneados[decision] = true;
+		contador = num_acciones;
+	}
+
+	// Resetea mapa de entidades
+	// for(int i=0; i<16; ++i) {
+	// 	pair<int,int> casilla = VtoM(i, sensores.rumbo, {f,c});
+	// 	int nf = casilla.first;
+	// 	int nc = casilla.second;
+	// 	mapaEntidades[nf][nc] = '?';
+	// }
+
+	for(int i=0; i<mapaEntidades.size(); ++i) {
+		for(int j=0; j<mapaEntidades[i].size(); ++j) {
+			mapaEntidades[i][j] = '?';
+		}
+	}
+
+	last_action = action;
+	++num_acciones;
+
+	return action;
 }
+
 
 /*********************************** NIVEL 2 **********************************************/
 Action ComportamientoAuxiliar::ComportamientoAuxiliarNivel_2(Sensores sensores)
