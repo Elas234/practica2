@@ -5,7 +5,7 @@
 #include <time.h>
 #include <thread>
 #include <list>
-
+#include <map>
 #include "comportamientos/comportamiento.hpp"
 
 struct EstadoA
@@ -19,16 +19,46 @@ struct EstadoA
 	{
 		return f == st.f && c == st.c && brujula == st.brujula && zapatillas == st.zapatillas;
 	}
+	bool operator<(const EstadoA &st) const
+	{
+		if (f < st.f) return true;
+		else if (f == st.f && c < st.c) return true;
+		else if (f == st.f && c == st.c && brujula < st.brujula) return true;
+		else if (f == st.f && c == st.c && brujula == st.brujula && zapatillas < st.zapatillas) return true;
+		else return false;
+	}
+	bool operator>(const EstadoA &st) const
+	{
+		return !(*this < st) && !(*this == st);
+	}
 };
 
 struct NodoA
 {
 	EstadoA estado;
 	list<Action> secuencia;
+	int g;
+	int h;
+
+	NodoA() : g(0), h(0) {}
 
 	bool operator==(const NodoA &nodo) const
 	{
 		return estado == nodo.estado;
+	}
+
+	bool operator<(const NodoA &node) const{
+		if (g+h < node.g+node.h) return true;
+		else if(g+h > node.g+node.h) return false;
+		else if (estado.f < node.estado.f) return true;
+		else if (estado.f == node.estado.f && estado.c < node.estado.c) return true;
+		else if (estado.f == node.estado.f && estado.c == node.estado.c && estado.brujula < node.estado.brujula) return true;
+		else if (estado.f == node.estado.f && estado.c == node.estado.c && estado.brujula == node.estado.brujula && estado.zapatillas < node.estado.zapatillas) return true;
+		else return false;
+	}
+
+	bool operator>(const NodoA &node) const {
+		return !(*this < node) && !(*this == node);
 	}
 };
 
@@ -62,6 +92,7 @@ public:
 	{
 		// Inicializar Variables de Estado Niveles 2,3
 		hayPlan = false;
+		plan.clear();
 	}
 	/**
 	 * @brief Constructor de copia
@@ -236,19 +267,19 @@ public:
 
 	/***************************** NIVEL E ********************************************/
 
-	list<Action> AnchuraAuxiliar(const EstadoA &inicio, const EstadoA &final, 
-		const vector<vector<unsigned char>> &terreno, const vector<vector<unsigned char>> &altura);
+	list<Action> AnchuraAuxiliar(const EstadoA &inicio, const EstadoA &final);
 
 	bool IsSolution(const EstadoA &estado, const EstadoA &final);
-	bool CasillaAccesibleAuxiliar(const EstadoA &st, const vector<vector<unsigned char>> &terreno,
-		const vector<vector<unsigned char>> &altura);
+	bool CasillaAccesibleAuxiliar(const EstadoA &st);
 	EstadoA NextCasillaAuxiliar(const EstadoA &st);
-	EstadoA applyA(Action accion, const EstadoA &st, const vector<vector<unsigned char>> &terreno,
-		const vector<vector<unsigned char>> &altura);
+	EstadoA applyA(Action accion, const EstadoA &st, bool &accesible);
 	bool Find(const NodoA &st, const list<NodoA> &lista);
 	void VisualizaPlan(const EstadoA &st, const list<Action> &plan);
 	void PintaPlan(const list<Action> &plan, bool zap);
 	void AnularMatrizA(vector<vector<unsigned char>> &m);
+	int Heuristica(const EstadoA &st, const EstadoA &final);
+	int CalcularCoste(Action accion, const EstadoA &st);
+	list<Action> A_Estrella(const EstadoA &inicio, const EstadoA &final);
 
 	Action ComportamientoAuxiliarNivel_0(Sensores sensores);
 	Action ComportamientoAuxiliarNivel_1(Sensores sensores);

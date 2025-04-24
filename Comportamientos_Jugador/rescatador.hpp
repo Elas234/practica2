@@ -4,8 +4,64 @@
 #include <chrono>
 #include <time.h>
 #include <thread>
+#include <list>
+#include <set>
+#include <queue>
 
 #include "comportamientos/comportamiento.hpp"
+
+struct EstadoR
+{
+	int f;
+	int c;
+	int brujula;
+	bool zapatillas;
+
+	bool operator==(const EstadoR &st) const
+	{
+		return f == st.f && c == st.c && brujula == st.brujula && zapatillas == st.zapatillas;
+	}
+	bool operator<(const EstadoR &st) const
+	{
+		if (f < st.f) return true;
+		else if (f == st.f && c < st.c) return true;
+		else if (f == st.f && c == st.c && brujula < st.brujula) return true;
+		else if (f == st.f && c == st.c && brujula == st.brujula && zapatillas < st.zapatillas) return true;
+		else return false;
+	}
+	bool operator>(const EstadoR &st) const
+	{
+		return !(*this < st);
+	}
+};
+
+struct NodoR
+{
+	EstadoR estado;
+	list<Action> secuencia;
+	int g;
+
+	NodoR() : g(0) {}
+
+	bool operator==(const NodoR &nodo) const
+	{
+		return estado == nodo.estado;
+	}
+
+	bool operator<(const NodoR &node) const{
+		if (g < node.g) return true;
+		else if(g > node.g) return false;
+		else if (estado.f < node.estado.f) return true;
+		else if (estado.f == node.estado.f && estado.c < node.estado.c) return true;
+		else if (estado.f == node.estado.f && estado.c == node.estado.c && estado.brujula < node.estado.brujula) return true;
+		else if (estado.f == node.estado.f && estado.c == node.estado.c && estado.brujula == node.estado.brujula && estado.zapatillas < node.estado.zapatillas) return true;
+		else return false;
+	}
+
+	bool operator>(const NodoR &node) const {
+		return !(*this < node) && !(*this == node);
+	}
+};
 
 class ComportamientoRescatador : public Comportamiento
 {
@@ -37,6 +93,8 @@ public:
 	ComportamientoRescatador(std::vector<std::vector<unsigned char>> mapaR, std::vector<std::vector<unsigned char>> mapaC) : Comportamiento(mapaR, mapaC)
 	{
 		// Inicializar Variables de Estado Niveles 2,3
+		hayPlan = false;
+		plan.clear();
 	}
 
 	/**
@@ -137,6 +195,7 @@ public:
 
 	void CasillasInteresantesAllAround_LVL1(const pair<int,int> & orig, const vector<bool> & accesible, 
 		const vector<bool> & transitable, vector<bool> & is_interesting, vector<int> & casillas_interesantes, bool zap);
+
 	/**
 	 * @brief Selecciona la casilla más interesante
 	 * @param sensores Sensores del agente
@@ -195,6 +254,19 @@ public:
 	 */
 	Action SelectAction(int decision, Orientacion rumbo);
 
+
+	bool IsSolution(const EstadoR &estado, const EstadoR &final);
+	bool CasillaAccesibleRescatador(const EstadoR &st, int impulso);
+	EstadoR NextCasillaRescatador(const EstadoR &st, int impulso);
+	EstadoR applyR(Action accion, const EstadoR &st, bool &accesible);
+	void VisualizaPlan(const EstadoR &st, const list<Action> &plan);
+	void PintaPlan(const list<Action> &plan, bool zap);
+	void AnularMatrizA(vector<vector<unsigned char>> &m);
+	int Heuristica(const EstadoR &st, const EstadoR &final);
+	int CalcularCoste(Action accion, const EstadoR &st);
+
+	list<Action> Dijkstra(const EstadoR &inicio, const EstadoR &final);
+
 	Action ComportamientoRescatadorNivel_0(Sensores sensores);
 	Action ComportamientoRescatadorNivel_1(Sensores sensores);
 	Action ComportamientoRescatadorNivel_2(Sensores sensores);
@@ -214,6 +286,9 @@ private:
 	int contador;
 	vector<bool> baneados;
 	vector<vector<int>> mapaFrecuencias;
+
+	list<Action> plan;
+	bool hayPlan;
 };
 
 #endif
