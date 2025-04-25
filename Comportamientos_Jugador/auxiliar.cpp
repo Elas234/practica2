@@ -604,7 +604,8 @@ Action ComportamientoAuxiliar::ComportamientoAuxiliarNivel_0(Sensores sensores)
 	// }
 
 	SituarSensorEnMapa(sensores);
-	mapaFrecuencias[sensores.posF][sensores.posC]++;
+	if(last_action == WALK)
+		mapaFrecuencias[sensores.posF][sensores.posC]++;
 
 	if(sensores.superficie[0] == 'D') {
 		tiene_zapatillas = true;
@@ -712,7 +713,8 @@ Action ComportamientoAuxiliar::ComportamientoAuxiliarNivel_1(Sensores sensores)
 	// }
 
 	SituarSensorEnMapa(sensores);
-	mapaFrecuencias[sensores.posF][sensores.posC]++;
+	if(last_action == WALK)
+		mapaFrecuencias[sensores.posF][sensores.posC]++;
 
 	if(sensores.superficie[0] == 'D') {
 		tiene_zapatillas = true;
@@ -808,6 +810,7 @@ Action ComportamientoAuxiliar::ComportamientoAuxiliarNivel_3(Sensores sensores)
 		inicio.brujula = sensores.rumbo;
 		fin.f = sensores.destinoF;
 		fin.c = sensores.destinoC;
+
 		// cout << "    ";
 		// for (int j = 0; j < mapaResultado[0].size(); ++j) {
 		// 	cout << setw(3) << j << " ";
@@ -824,11 +827,12 @@ Action ComportamientoAuxiliar::ComportamientoAuxiliarNivel_3(Sensores sensores)
 		// 		EstadoA a;
 		// 		a.f = i;
 		// 		a.c = j;
-		// 		a.brujula = suroeste;
+		// 		a.brujula = norte;
 		// 		cout << setw(3) << Heuristica(a, fin) << " ";
 		// 	}
 		// 	cout << endl;
 		// }
+
 		inicio.zapatillas = false;
 		plan = A_Estrella(inicio, fin);
 		VisualizaPlan(inicio, plan);
@@ -1132,6 +1136,8 @@ EstadoA ComportamientoAuxiliar::applyA(Action accion, const EstadoA &st, bool &a
 //TODO: Arreglar refinamiento de la heurística (funciona sin él)
 int ComportamientoAuxiliar::Heuristica(const EstadoA &st, const EstadoA &final)
 {
+	if(st.f == final.f && st.c == final.c)
+		return 0;
 	// Heurística del máximo
 	int h = max(abs(st.f - final.f), abs(st.c - final.c));
 	// Pendiente
@@ -1141,8 +1147,9 @@ int ComportamientoAuxiliar::Heuristica(const EstadoA &st, const EstadoA &final)
 	else if((st.f-final.f)==(st.c-final.c)) m=1;
 	else if((st.f-final.f)==-(st.c-final.c)) m=-1;
 	else m = (double)(st.f-final.f)/(st.c-final.c);
-	int octante;
-	
+
+	// Octante
+	int octante;	
 
 	if(final.c>st.c) {
 		if(-INF < m && m < -1) octante = 0;
@@ -1160,16 +1167,29 @@ int ComportamientoAuxiliar::Heuristica(const EstadoA &st, const EstadoA &final)
 		if(st.f>final.f) octante = 0;
 		else octante = 4;
 	}
+
+	// int delta_f = final.f - st.f;
+	// int delta_c = final.c - st.c;
+
+	// // Normaliza a dirección (diagonal más cercana)
+	// int df = (delta_f > 0) - (delta_f < 0); // será -1, 0 o 1
+	// int dc = (delta_c > 0) - (delta_c < 0);
+
+	// // Mapear (df, dc) a orientación (0 a 7)
+	// int direccion;
+	// if(df == -1 && dc == 0) direccion = 0;
+	// else if(df == -1 && dc == 1) direccion = 1;
+	// else if(df == 0 && dc == 1) direccion = 2;
+	// else if(df == 1 && dc == 1) direccion = 3;
+	// else if(df == 1 && dc == 0) direccion = 4;
+	// else if(df == 1 && dc == -1) direccion = 5;
+	// else if(df == 0 && dc == -1) direccion = 6;
+	// else if(df == -1 && dc == -1) direccion = 7;
+	// else direccion = st.brujula; // Ya está en el objetivo, no necesita girar
+	// // Incremento de la heurística
 	int inc = (octante - st.brujula + 8) % 8;
-	// if(st.f == 23 && st.c == 31) {
-	// 	cout << "Heuristica: " << h << " + " << inc << endl;
-	// 	cout << "Octante: " << octante << endl;
-	// 	cout << "Brujula: " << st.brujula << endl;
-	// 	cout << "m: " << m << endl;
-	// 	cout << endl;
-	// }
 	
-	return h;//+inc;
+	return h+inc;
 
 	// return 0;
 }

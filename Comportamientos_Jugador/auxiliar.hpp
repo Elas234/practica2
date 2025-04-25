@@ -47,18 +47,41 @@ struct NodoA
 		return estado == nodo.estado;
 	}
 
-	bool operator<(const NodoA &node) const{
-		if (g+h < node.g+node.h) return true;
-		else if(g+h > node.g+node.h) return false;
-		else if (estado.f < node.estado.f) return true;
-		else if (estado.f == node.estado.f && estado.c < node.estado.c) return true;
-		else if (estado.f == node.estado.f && estado.c == node.estado.c && estado.brujula < node.estado.brujula) return true;
-		else if (estado.f == node.estado.f && estado.c == node.estado.c && estado.brujula == node.estado.brujula && estado.zapatillas < node.estado.zapatillas) return true;
-		else return false;
+	// bool operator<(const NodoA &node) const{
+	// 	if (g+h < node.g+node.h) return true;
+	// 	else if(g+h > node.g+node.h) return false;
+	// 	// else if(g < node.g) return true;
+	// 	else if (estado.f < node.estado.f) return true;
+	// 	else if (estado.f == node.estado.f && estado.c < node.estado.c) return true;
+	// 	else if (estado.f == node.estado.f && estado.c == node.estado.c && estado.brujula < node.estado.brujula) return true;
+	// 	else if (estado.f == node.estado.f && estado.c == node.estado.c && estado.brujula == node.estado.brujula && estado.zapatillas < node.estado.zapatillas) return true;
+	// 	else return false;
+	// }
+	bool operator<(const NodoA &node) const {
+		int f1 = g + h;
+		int f2 = node.g + node.h;
+		if (f1 != f2) return f1 < f2;
+	
+		// Rompe empates por componentes del estado
+		if (estado.f != node.estado.f) return estado.f < node.estado.f;
+		if (estado.c != node.estado.c) return estado.c < node.estado.c;
+		if (estado.brujula != node.estado.brujula) return estado.brujula < node.estado.brujula;
+		return estado.zapatillas < node.estado.zapatillas;
 	}
 
 	bool operator>(const NodoA &node) const {
-		return !(*this < node) && !(*this == node);
+		int f1 = g + h;
+		int f2 = node.g + node.h;
+		if (f1 != f2) return f1 > f2;
+		else if(f1 == f2) {
+		// Rompe empates al revés que operator<
+			if (g != node.g) return g > node.g;
+			if (estado.f != node.estado.f) return estado.f > node.estado.f;
+			if (estado.c != node.estado.c) return estado.c > node.estado.c;
+			if (estado.brujula != node.estado.brujula) return estado.brujula > node.estado.brujula;
+			return estado.zapatillas > node.estado.zapatillas;
+		}
+		else return false;
 	}
 };
 

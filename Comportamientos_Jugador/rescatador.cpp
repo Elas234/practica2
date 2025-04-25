@@ -650,7 +650,8 @@ Action ComportamientoRescatador::ComportamientoRescatadorNivel_0(Sensores sensor
 	int c = sensores.posC;
 
 	SituarSensorEnMapa(sensores);
-	mapaFrecuencias[f][c]++;
+	if(last_action == WALK || last_action == RUN)
+		mapaFrecuencias[f][c]++;
 
 	if(sensores.superficie[0] == 'D') {
 		tiene_zapatillas = true;
@@ -743,7 +744,8 @@ Action ComportamientoRescatador::ComportamientoRescatadorNivel_1(Sensores sensor
 	int c = sensores.posC;
 
 	SituarSensorEnMapa(sensores);
-	mapaFrecuencias[f][c]++;
+	if(last_action == WALK || last_action == RUN) 
+		mapaFrecuencias[f][c]++;
 
 	if(sensores.superficie[0] == 'D') {
 		tiene_zapatillas = true;
