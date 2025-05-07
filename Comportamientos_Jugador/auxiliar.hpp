@@ -36,7 +36,7 @@ struct EstadoA
 struct NodoA
 {
 	EstadoA estado;
-	list<Action> secuencia;
+	vector<Action> secuencia;
 	int g;
 	int h;
 
@@ -106,6 +106,8 @@ public:
 		decision = -1;
 		mapaFrecuencias.resize(size, vector<int>(size, 0));
 
+		index = 0;
+
 		hayPlan = false;
 		plan.clear();
 		tiempo_recarga = 0;
@@ -120,6 +122,7 @@ public:
 	{
 		// Inicializar Variables de Estado Niveles 2,3
 		hayPlan = false;
+		index = 0;
 		plan.clear();
 	}
 	/**
@@ -291,23 +294,24 @@ public:
 	 * @return Acción a realizar
 	 */
 	Action SelectAction(int decision, Orientacion rumbo);	
-
+	
+	void OndaDeCalor(int f, int c);
 
 	/***************************** NIVEL E ********************************************/
 
-	list<Action> AnchuraAuxiliar(const EstadoA &inicio, const EstadoA &final, const Sensores & sensores);
+	vector<Action> AnchuraAuxiliar(const EstadoA &inicio, const EstadoA &final, const Sensores & sensores);
 
 	bool IsSolution(const EstadoA &estado, const EstadoA &final);
-	bool CasillaAccesibleAuxiliar(const EstadoA &st, const Sensores & sensores);
+	bool CasillaAccesibleAuxiliar(const EstadoA &st, int nivel);
 	EstadoA NextCasillaAuxiliar(const EstadoA &st);
 	EstadoA applyA(Action accion, const EstadoA &st, bool &accesible, const Sensores & sensores);
 	bool Find(const NodoA &st, const list<NodoA> &lista);
-	void VisualizaPlan(const EstadoA &st, const list<Action> &plan);
-	void PintaPlan(const list<Action> &plan, bool zap);
+	void VisualizaPlan(const EstadoA &st, const vector<Action> &plan);
+	void PintaPlan(const vector<Action> &plan, bool zap);
 	void AnularMatrizA(vector<vector<unsigned char>> &m);
 	int Heuristica(const EstadoA &st, const EstadoA &final);
 	int CalcularCoste(Action accion, const EstadoA &st);
-	list<Action> A_Estrella(const EstadoA &inicio, const EstadoA &final, const Sensores & sensores);
+	vector<Action> A_Estrella(const EstadoA &inicio, const EstadoA &final, const Sensores & sensores);
 
 	bool HayQueReplanificar(const Sensores & sensores, const Action & accion, const EstadoA & estado);
 
@@ -334,8 +338,10 @@ private:
 	int num_acciones;
 	vector< vector<int> > mapaFrecuencias;
 
-	list<Action> plan;
+	vector<Action> plan;
+	int index;
 	bool hayPlan;
+
 
 	int tiempo_recarga;
 	bool recargar;

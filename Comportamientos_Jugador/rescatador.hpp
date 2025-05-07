@@ -38,28 +38,42 @@ struct EstadoR
 struct NodoR
 {
 	EstadoR estado;
-	list<Action> secuencia;
+	vector<Action> secuencia;
 	int g;
+	int h;
 
-	NodoR() : g(0) {}
+	NodoR() : g(0) , h(0) {}
 
 	bool operator==(const NodoR &nodo) const
 	{
 		return estado == nodo.estado;
 	}
 
-	bool operator<(const NodoR &node) const{
-		if (g < node.g) return true;
-		else if(g > node.g) return false;
-		else if (estado.f < node.estado.f) return true;
-		else if (estado.f == node.estado.f && estado.c < node.estado.c) return true;
-		else if (estado.f == node.estado.f && estado.c == node.estado.c && estado.brujula < node.estado.brujula) return true;
-		else if (estado.f == node.estado.f && estado.c == node.estado.c && estado.brujula == node.estado.brujula && estado.zapatillas < node.estado.zapatillas) return true;
-		else return false;
+	bool operator<(const NodoR &node) const {
+		int f1 = g + h;
+		int f2 = node.g + node.h;
+		if (f1 != f2) return f1 < f2;
+	
+		// Rompe empates por componentes del estado
+		if (estado.f != node.estado.f) return estado.f < node.estado.f;
+		if (estado.c != node.estado.c) return estado.c < node.estado.c;
+		if (estado.brujula != node.estado.brujula) return estado.brujula < node.estado.brujula;
+		return estado.zapatillas < node.estado.zapatillas;
 	}
 
 	bool operator>(const NodoR &node) const {
-		return !(*this < node) && !(*this == node);
+		int f1 = g + h;
+		int f2 = node.g + node.h;
+		if (f1 != f2) return f1 > f2;
+		else if(f1 == f2) {
+		// Rompe empates al revés que operator<
+			if (g != node.g) return g > node.g;
+			if (estado.f != node.estado.f) return estado.f > node.estado.f;
+			if (estado.c != node.estado.c) return estado.c > node.estado.c;
+			if (estado.brujula != node.estado.brujula) return estado.brujula > node.estado.brujula;
+			return estado.zapatillas > node.estado.zapatillas;
+		}
+		else return false;
 	}
 };
 
@@ -100,6 +114,7 @@ public:
 	{
 		// Inicializar Variables de Estado Niveles 2,3
 		hayPlan = false;
+		index = 0;
 		plan.clear();
 	}
 
@@ -260,18 +275,20 @@ public:
 	 */
 	Action SelectAction(int decision, Orientacion rumbo);
 
+	void OndaDeCalor(int f, int c);
 
 	bool IsSolution(const EstadoR &estado, const EstadoR &final);
-	bool CasillaAccesibleRescatador(const EstadoR &st, int impulso, const Sensores & sensores);
+	bool CasillaAccesibleRescatador(const EstadoR &st, int impulso, int nivel);
 	EstadoR NextCasillaRescatador(const EstadoR &st, int impulso);
 	EstadoR applyR(Action accion, const EstadoR &st, bool &accesible, const Sensores & sensores);
-	void VisualizaPlan(const EstadoR &st, const list<Action> &plan);
-	void PintaPlan(const list<Action> &plan, bool zap);
+	void VisualizaPlan(const EstadoR &st, const vector<Action> &plan);
+	void PintaPlan(const vector<Action> &plan, bool zap);
 	void AnularMatrizA(vector<vector<unsigned char>> &m);
 	int Heuristica(const EstadoR &st, const EstadoR &final);
 	int CalcularCoste(Action accion, const EstadoR &st);
 
-	list<Action> Dijkstra(const EstadoR &inicio, const EstadoR &final, const Sensores & sensores);
+	vector<Action> Dijkstra(const EstadoR &inicio, const EstadoR &final, const Sensores & sensores);
+	vector<Action> A_estrella(const EstadoR &inicio, const EstadoR &final, const Sensores & sensores);
 
 	bool HayQueReplanificar(const Sensores & sensores, const Action & accion, const EstadoR & estado);
 
@@ -295,7 +312,8 @@ private:
 	vector<bool> baneados;
 	vector<vector<int>> mapaFrecuencias;
 	
-	list<Action> plan;
+	vector<Action> plan;
+	int index;
 	bool hayPlan;
 
 	int tiempo_espera;

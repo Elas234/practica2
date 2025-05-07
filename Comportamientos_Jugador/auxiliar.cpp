@@ -574,6 +574,36 @@ Action ComportamientoAuxiliar::SelectAction(int decision, Orientacion rumbo)
 	return action;
 }
 
+void ComportamientoAuxiliar::OndaDeCalor(int f, int c) {
+
+	int calor = 16;
+	const int MAX_LEVEL = 3;
+	vector<int> m[MAX_LEVEL+1][2];
+
+	m[0][0] = m[0][1] = {0};
+
+	m[1][0] = {-1, -1,  0,  1,  1,  1,  0, -1};
+	m[1][1] = { 0,  1,  1,  1,  0, -1, -1, -1};
+
+	m[2][0] = {-2, -2, -2, -1, 0, 1, 2, 2, 2, 2, 2, 1, 0, -1, -2, -2};
+	m[2][1] = { 0,  1, 2, 2, 2, 2, 2, 1, 0, -1, -2, -2, -2, -2, -2, -1};
+
+	m[3][0] = {-3,-3,-3,-3,-2,-1,0,1,2,3,3,3,3,3,3,3,2,1,0,-1,-2,-3,-3,-3};
+	m[3][1] = {0,1,2,3,3,3,3,3,3,3,2,1,0,-1,-2,-3,-3,-3,-3,-3,-3,-3,-2,-1};
+
+	// mapaFrecuencias[f][c] += calor;
+	for(int level=0; level<MAX_LEVEL; ++level) {
+		for(int j=0; j<m[level][0].size(); ++j) {
+			int nf = f + m[level][0][j];
+			int nc = c + m[level][1][j];
+			mapaFrecuencias[nf][nc] += calor;
+		}
+		calor /= 2;
+		if(calor <= 0) break;
+	}
+	
+}
+
 /*********************************** NIVEL 0 **********************************************/
 Action ComportamientoAuxiliar::ComportamientoAuxiliarNivel_0(Sensores sensores)
 {
@@ -811,6 +841,8 @@ Action ComportamientoAuxiliar::ComportamientoAuxiliarNivel_3(Sensores sensores)
 	Action accion = IDLE;
 	if (!hayPlan)
 	{
+		index = 0;
+		plan.clear();
 		EstadoA inicio, fin;
 		inicio.f = sensores.posF;
 		inicio.c = sensores.posC;
@@ -824,12 +856,12 @@ Action ComportamientoAuxiliar::ComportamientoAuxiliarNivel_3(Sensores sensores)
 		PintaPlan(plan, tiene_zapatillas);
 		hayPlan = (plan.size() != 0);
 	}
-	if (hayPlan && plan.size() > 0)
+	if (hayPlan && index < plan.size())
 	{
-		accion = plan.front();
-		plan.pop_front();
+		accion = plan[index];
+		++index;
 	}
-	if (plan.size() == 0)
+	if (index == plan.size())
 	{
 		hayPlan = false;
 	}
@@ -838,7 +870,7 @@ Action ComportamientoAuxiliar::ComportamientoAuxiliarNivel_3(Sensores sensores)
 
 bool ComportamientoAuxiliar::HayQueReplanificar(const Sensores & sensores, const Action & accion, const EstadoA & estado) {
 	if(sensores.choque) return true;
-	if(accion == WALK && !CasillaAccesibleAuxiliar(estado, sensores)) return true;
+	if(accion == WALK && !CasillaAccesibleAuxiliar(estado, 2)) return true;
 
 	return false;
 }
@@ -848,7 +880,7 @@ Action ComportamientoAuxiliar::ComportamientoAuxiliarNivel_4(Sensores sensores)
 {
 	Action accion = IDLE;
 
-	const int LIMITE_ENERGIA = 2900;
+	const int LIMITE_ENERGIA = 2700;
 	const int RECARGA = 100;
 
 
@@ -877,7 +909,7 @@ Action ComportamientoAuxiliar::ComportamientoAuxiliarNivel_4(Sensores sensores)
 	if(sensores.superficie[0] == 'D') {
 		tiene_zapatillas = true;
 	}
-	cout << boolalpha << sensores.venpaca << endl;
+	// cout << boolalpha << sensores.venpaca << endl;
 	if(sensores.venpaca) {
 		// Si me choco, relanzo A* ahora con más visión
 		EstadoA estado;
@@ -886,12 +918,14 @@ Action ComportamientoAuxiliar::ComportamientoAuxiliarNivel_4(Sensores sensores)
 		estado.brujula = sensores.rumbo;
 		estado.zapatillas = false;
 		
-		if(hayPlan && HayQueReplanificar(sensores, plan.front(), estado)) hayPlan = false;
+		if(hayPlan && HayQueReplanificar(sensores, plan[index], estado)) hayPlan = false;
 		
 		accion = ComportamientoAuxiliarNivel_3(sensores);
 	}
 	// Mientras el rescatador no me llame, descubro mapa (similar al nivel 1)
 	else {
+		hayPlan = false;
+		plan.clear();
 		accion = ComportamientoAuxiliarNivel_1(sensores);
 	}
 	// Cuando llegue o el rescatador aborte misión, repito
@@ -912,12 +946,12 @@ list<Action> AvanzaASaltosDeCaballo()
 	return secuencia;
 }
 
-list<Action> ComportamientoAuxiliar::AnchuraAuxiliar(const EstadoA &inicio, const EstadoA &final, const Sensores & sensores)
+vector<Action> ComportamientoAuxiliar::AnchuraAuxiliar(const EstadoA &inicio, const EstadoA &final, const Sensores & sensores)
 {
 	NodoA current_node;
 	list<NodoA> frontier;
 	set<NodoA> explored;
-	list<Action> path;
+	vector<Action> path;
 
 	current_node.estado = inicio; // Asigna el estado inicial al nodo actual
 	frontier.push_back(current_node);
@@ -995,7 +1029,7 @@ bool ComportamientoAuxiliar::IsSolution(const EstadoA &estado, const EstadoA &fi
 	return estado.f == final.f && estado.c == final.c;
 }
 
-bool ComportamientoAuxiliar::CasillaAccesibleAuxiliar(const EstadoA &st, const Sensores & sensores)
+bool ComportamientoAuxiliar::CasillaAccesibleAuxiliar(const EstadoA &st, int nivel)
 {
 	EstadoA next = NextCasillaAuxiliar(st);
 	bool check1 = false, check2 = false, check3 = false, check4 = false;
@@ -1003,53 +1037,51 @@ bool ComportamientoAuxiliar::CasillaAccesibleAuxiliar(const EstadoA &st, const S
 	check2 = mapaResultado[next.f][next.c] != 'B' || (mapaResultado[next.f][next.c] == 'B' && st.zapatillas);
 	check3 = abs(mapaCotas[next.f][next.c] - mapaCotas[st.f][st.c]) <= 1;
 	check4 = 3 <= next.f && next.f < mapaResultado.size() - 3 && 3 <= next.c && next.c < mapaResultado[0].size() - 3;
-	if(sensores.nivel == 2)
+	if(nivel == 2)
 		return check1 && check2 && check3;
 	else 
-		return check1 && check2 && (check3 || mapaResultado[next.f][next.c] == '?') && check4;
+		return check1 && check2 && (check3 || mapaResultado[next.f][next.c] == '?' || mapaResultado[st.f][st.c] == '?') && check4;
 }
 
 EstadoA ComportamientoAuxiliar::NextCasillaAuxiliar(const EstadoA &st)
 {
-	// EstadoA next = st;
-	// int avance_f[8] = {-1, -1, 0, 1, 1, 1, 0, -1};
-	// int avance_c[8] = {0, 1, 1, 1, 0, -1, -1, -1};
-	// next.f += avance_f[st.brujula];
-	// next.c += avance_c[st.brujula];
-	// return next;
+	EstadoA next = st;
+	next.f += sf[st.brujula];
+	next.c += sc[st.brujula];
+	return next;
 
-	EstadoA siguiente = st;
-	switch (st.brujula)
-	{
-	case norte:
-		siguiente.f = st.f - 1;
-		break;
-	case noreste:
-		siguiente.f = st.f - 1;
-		siguiente.c = st.c + 1;
-		break;
-	case este:
-		siguiente.c = st.c + 1;
-		break;
-	case sureste:
-		siguiente.f = st.f + 1;
-		siguiente.c = st.c + 1;
-		break;
-	case sur:
-		siguiente.f = st.f + 1;
-		break;
-	case suroeste:
-		siguiente.f = st.f + 1;
-		siguiente.c = st.c - 1;
-		break;
-	case oeste:
-		siguiente.c = st.c - 1;
-		break;
-	case noroeste:
-		siguiente.f = st.f - 1;
-		siguiente.c = st.c - 1;
-	}
-	return siguiente;
+	// EstadoA siguiente = st;
+	// switch (st.brujula)
+	// {
+	// case norte:
+	// 	siguiente.f = st.f - 1;
+	// 	break;
+	// case noreste:
+	// 	siguiente.f = st.f - 1;
+	// 	siguiente.c = st.c + 1;
+	// 	break;
+	// case este:
+	// 	siguiente.c = st.c + 1;
+	// 	break;
+	// case sureste:
+	// 	siguiente.f = st.f + 1;
+	// 	siguiente.c = st.c + 1;
+	// 	break;
+	// case sur:
+	// 	siguiente.f = st.f + 1;
+	// 	break;
+	// case suroeste:
+	// 	siguiente.f = st.f + 1;
+	// 	siguiente.c = st.c - 1;
+	// 	break;
+	// case oeste:
+	// 	siguiente.c = st.c - 1;
+	// 	break;
+	// case noroeste:
+	// 	siguiente.f = st.f - 1;
+	// 	siguiente.c = st.c - 1;
+	// }
+	// return siguiente;
 }
 
 void ComportamientoAuxiliar::AnularMatrizA(vector<vector<unsigned char>> &m)
@@ -1063,7 +1095,7 @@ void ComportamientoAuxiliar::AnularMatrizA(vector<vector<unsigned char>> &m)
 	}
 }
 
-void ComportamientoAuxiliar::PintaPlan(const list<Action> &plan, bool zap)
+void ComportamientoAuxiliar::PintaPlan(const vector<Action> &plan, bool zap)
 {
 	auto it = plan.begin();
 	while (it != plan.end())
@@ -1108,7 +1140,7 @@ void ComportamientoAuxiliar::PintaPlan(const list<Action> &plan, bool zap)
 	cout << ")\n";
 }
 
-void ComportamientoAuxiliar::VisualizaPlan(const EstadoA &st, const list<Action> &plan)
+void ComportamientoAuxiliar::VisualizaPlan(const EstadoA &st, const vector<Action> &plan)
 {
 	AnularMatrizA(mapaConPlan);
 	EstadoA cst = st;
@@ -1165,7 +1197,7 @@ EstadoA ComportamientoAuxiliar::applyA(Action accion, const EstadoA &st, bool &a
 	switch (accion)
 	{
 	case WALK:
-		if (CasillaAccesibleAuxiliar(st, sensores))
+		if (CasillaAccesibleAuxiliar(st, sensores.nivel))
 		{
 			next = NextCasillaAuxiliar(st);
 		}
@@ -1181,21 +1213,18 @@ EstadoA ComportamientoAuxiliar::applyA(Action accion, const EstadoA &st, bool &a
 	return next;
 }
 
-int ComportamientoAuxiliar::Heuristica(const EstadoA &st, const EstadoA &final)
-{
-	if(st.f == final.f && st.c == final.c)
-		return 0;
-	// Heurística del máximo
-	int h = max(abs(st.f - final.f), abs(st.c - final.c));
-
+// Calcular el mínimo número de giros necesarios para llegar al objetivo
+int RefinamientoAuxiliar(const EstadoA & st, const EstadoA & final) {
 	// Pendiente
 	double m;
+	int plus1 = 0;
 	if(st.c==final.c) m = (st.f>final.f) ? -INF : INF;
 	else if(st.f==final.f) m=0;
 	else if((st.f-final.f)==(st.c-final.c)) m=1;
 	else if((st.f-final.f)==-(st.c-final.c)) m=-1;
 	else {
 		m = (double)(st.f-final.f)/(st.c-final.c);
+		plus1 = 1;
 	}
 
 	// Octante
@@ -1219,8 +1248,21 @@ int ComportamientoAuxiliar::Heuristica(const EstadoA &st, const EstadoA &final)
 	}
 	// Incremento de la heurística
 	int inc = ((octante - st.brujula + 8) % 8);
+
+	return inc+plus1;
+}
+
+int ComportamientoAuxiliar::Heuristica(const EstadoA &st, const EstadoA &final)
+{
+	if(st.f == final.f && st.c == final.c)
+		return 0;
+	// Heurística del máximo
+	int h = max(abs(st.f - final.f), abs(st.c - final.c));
+
+	// Refinamiento
+	int ref = RefinamientoAuxiliar(st, final);
 	
-	return h+inc;
+	return h+ref;
 }
 
 int ComportamientoAuxiliar::CalcularCoste(Action accion, const EstadoA &st)
@@ -1277,11 +1319,11 @@ int ComportamientoAuxiliar::CalcularCoste(Action accion, const EstadoA &st)
 	return coste;
 }
 
-list<Action> ComportamientoAuxiliar::A_Estrella(const EstadoA &inicio, const EstadoA &final, const Sensores & sensores) {
+vector<Action> ComportamientoAuxiliar::A_Estrella(const EstadoA &inicio, const EstadoA &final, const Sensores & sensores) {
 	NodoA current_node;
 	min_priority_queue frontier;
 	set<EstadoA> explored;
-	list<Action> path;
+	vector<Action> path;
 
 	int cont = 0;
 
@@ -1349,6 +1391,8 @@ Action ComportamientoAuxiliar::ComportamientoAuxiliarNivel_E(Sensores sensores)
 	Action accion = IDLE;
 	if (!hayPlan)
 	{
+		index = 0;
+		plan.clear();
 		// Invocar al método de búsqueda
 		EstadoA inicio, fin;
 		inicio.f = sensores.posF;
@@ -1361,12 +1405,12 @@ Action ComportamientoAuxiliar::ComportamientoAuxiliarNivel_E(Sensores sensores)
 		VisualizaPlan(inicio, plan);
 		hayPlan = plan.size() != 0;
 	}
-	if (hayPlan && plan.size() > 0)
+	if (hayPlan && index < plan.size())
 	{
-		accion = plan.front();
-		plan.pop_front();
+		accion = plan[index];
+		++index;
 	}
-	if (plan.size() == 0)
+	if (index == plan.size())
 	{
 		hayPlan = false;
 	}
