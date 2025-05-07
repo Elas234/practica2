@@ -36,7 +36,7 @@ Action ComportamientoAuxiliar::think(Sensores sensores)
 		// accion = ComportamientoAuxiliarNivel_E(sensores);
 		break;
 	case 4:
-		// accion = ComportamientoAuxiliarNivel_4 (sensores);
+		accion = ComportamientoAuxiliarNivel_4 (sensores);
 		break;
 	}
 
@@ -231,7 +231,7 @@ int ComportamientoAuxiliar::SelectCasillaAllAround_LVL1(const pair<int,int> & or
 	};
 
 	int peso_mapaCotas = 1;
-	int peso_frecuencia_adyacentes = 5;
+	int peso_frecuencia_adyacentes = 0;
 	int peso_frecuencia = 10;
 	int puntuacion_destino[ALCANZABLES] = {0};
 	int puntuaciones_iniciales[ALCANZABLES] = // {0};
@@ -700,6 +700,7 @@ Action ComportamientoAuxiliar::ComportamientoAuxiliarNivel_1(Sensores sensores)
 		int giro45izq;
 	*/
 
+
 	Action action;
 
 	// Actualización de variables de estado
@@ -711,6 +712,12 @@ Action ComportamientoAuxiliar::ComportamientoAuxiliarNivel_1(Sensores sensores)
 	// 		fill(mapaFrecuencias[i].begin(), mapaFrecuencias[i].end(), 0);
 	// 	}
 	// }
+	if(sensores.energia <= 10) {
+		// Low battery
+		return IDLE;
+	}
+
+	//TODO : incrementar frecuencias alrededor (funcion)
 
 	SituarSensorEnMapa(sensores);
 	if(last_action == WALK)
@@ -811,30 +818,8 @@ Action ComportamientoAuxiliar::ComportamientoAuxiliarNivel_3(Sensores sensores)
 		fin.f = sensores.destinoF;
 		fin.c = sensores.destinoC;
 
-		// cout << "    ";
-		// for (int j = 0; j < mapaResultado[0].size(); ++j) {
-		// 	cout << setw(3) << j << " ";
-		// }
-		// cout << endl;
-
-		// for (int i = 0; i < mapaResultado.size(); ++i) {
-		// 	cout << setw(3) << i << " ";
-		// 	for (int j = 0; j < mapaResultado[i].size(); ++j) {
-		// 		if (i == fin.f && j == fin.c) {
-		// 			cout << setw(3) << 0 << " ";
-		// 			continue;
-		// 		}
-		// 		EstadoA a;
-		// 		a.f = i;
-		// 		a.c = j;
-		// 		a.brujula = norte;
-		// 		cout << setw(3) << Heuristica(a, fin) << " ";
-		// 	}
-		// 	cout << endl;
-		// }
-
 		inicio.zapatillas = false;
-		plan = A_Estrella(inicio, fin);
+		plan = A_Estrella(inicio, fin, sensores);
 		VisualizaPlan(inicio, plan);
 		PintaPlan(plan, tiene_zapatillas);
 		hayPlan = (plan.size() != 0);
@@ -851,9 +836,68 @@ Action ComportamientoAuxiliar::ComportamientoAuxiliarNivel_3(Sensores sensores)
 	return accion;
 }
 
+bool ComportamientoAuxiliar::HayQueReplanificar(const Sensores & sensores, const Action & accion, const EstadoA & estado) {
+	if(sensores.choque) return true;
+	if(accion == WALK && !CasillaAccesibleAuxiliar(estado, sensores)) return true;
+
+	return false;
+}
+
 /*********************************** NIVEL 4 **********************************************/
 Action ComportamientoAuxiliar::ComportamientoAuxiliarNivel_4(Sensores sensores)
 {
+	Action accion = IDLE;
+
+	const int LIMITE_ENERGIA = 2900;
+	const int RECARGA = 100;
+
+
+	// Cuando el rescatador me llame, lanzo A* considerando las casillas desconocidas como transitables
+	
+	if((sensores.energia <= LIMITE_ENERGIA && (sensores.superficie[0] == 'C' || sensores.superficie[0] == 'X')) || recargar) {
+		// Low battery, abandonar posible comportamiento deliberativo para recargar
+		hayPlan = false;
+		plan.clear();
+
+		if(tiempo_recarga == 0) recargar = true;
+		++tiempo_recarga;
+		if(tiempo_recarga > RECARGA) {
+			recargar = false;
+			tiempo_recarga = 0;
+		}
+		return ComportamientoAuxiliarNivel_0(sensores);
+	}
+
+	//TODO : incrementar frecuencias alrededor (funcion)
+
+	SituarSensorEnMapa(sensores);
+	if(last_action == WALK)
+		mapaFrecuencias[sensores.posF][sensores.posC]++;
+
+	if(sensores.superficie[0] == 'D') {
+		tiene_zapatillas = true;
+	}
+	cout << boolalpha << sensores.venpaca << endl;
+	if(sensores.venpaca) {
+		// Si me choco, relanzo A* ahora con más visión
+		EstadoA estado;
+		estado.f = sensores.posF;
+		estado.c = sensores.posC;
+		estado.brujula = sensores.rumbo;
+		estado.zapatillas = false;
+		
+		if(hayPlan && HayQueReplanificar(sensores, plan.front(), estado)) hayPlan = false;
+		
+		accion = ComportamientoAuxiliarNivel_3(sensores);
+	}
+	// Mientras el rescatador no me llame, descubro mapa (similar al nivel 1)
+	else {
+		accion = ComportamientoAuxiliarNivel_1(sensores);
+	}
+	// Cuando llegue o el rescatador aborte misión, repito
+	last_action = accion;
+
+	return accion;
 }
 
 /*********************************** NIVEL E **********************************************/
@@ -868,7 +912,7 @@ list<Action> AvanzaASaltosDeCaballo()
 	return secuencia;
 }
 
-list<Action> ComportamientoAuxiliar::AnchuraAuxiliar(const EstadoA &inicio, const EstadoA &final)
+list<Action> ComportamientoAuxiliar::AnchuraAuxiliar(const EstadoA &inicio, const EstadoA &final, const Sensores & sensores)
 {
 	NodoA current_node;
 	list<NodoA> frontier;
@@ -904,7 +948,7 @@ list<Action> ComportamientoAuxiliar::AnchuraAuxiliar(const EstadoA &inicio, cons
 		{
 			NodoA child = current_node;
 			bool accesible = true;
-			child.estado = applyA(accion, current_node.estado, accesible);
+			child.estado = applyA(accion, current_node.estado, accesible, sensores);
 			if (IsSolution(child.estado, final))
 			{
 				child.secuencia.push_back(accion);
@@ -951,14 +995,18 @@ bool ComportamientoAuxiliar::IsSolution(const EstadoA &estado, const EstadoA &fi
 	return estado.f == final.f && estado.c == final.c;
 }
 
-bool ComportamientoAuxiliar::CasillaAccesibleAuxiliar(const EstadoA &st)
+bool ComportamientoAuxiliar::CasillaAccesibleAuxiliar(const EstadoA &st, const Sensores & sensores)
 {
 	EstadoA next = NextCasillaAuxiliar(st);
-	bool check1 = false, check2 = false, check3 = false;
+	bool check1 = false, check2 = false, check3 = false, check4 = false;
 	check1 = mapaResultado[next.f][next.c] != 'P' && mapaResultado[next.f][next.c] != 'M';
 	check2 = mapaResultado[next.f][next.c] != 'B' || (mapaResultado[next.f][next.c] == 'B' && st.zapatillas);
 	check3 = abs(mapaCotas[next.f][next.c] - mapaCotas[st.f][st.c]) <= 1;
-	return check1 && check2 && check3;
+	check4 = 3 <= next.f && next.f < mapaResultado.size() - 3 && 3 <= next.c && next.c < mapaResultado[0].size() - 3;
+	if(sensores.nivel == 2)
+		return check1 && check2 && check3;
+	else 
+		return check1 && check2 && (check3 || mapaResultado[next.f][next.c] == '?') && check4;
 }
 
 EstadoA ComportamientoAuxiliar::NextCasillaAuxiliar(const EstadoA &st)
@@ -1111,13 +1159,13 @@ void ComportamientoAuxiliar::VisualizaPlan(const EstadoA &st, const list<Action>
 	}
 }
 
-EstadoA ComportamientoAuxiliar::applyA(Action accion, const EstadoA &st, bool &accesible)
+EstadoA ComportamientoAuxiliar::applyA(Action accion, const EstadoA &st, bool &accesible, const Sensores & sensores)
 {
 	EstadoA next = st;
 	switch (accion)
 	{
 	case WALK:
-		if (CasillaAccesibleAuxiliar(st))
+		if (CasillaAccesibleAuxiliar(st, sensores))
 		{
 			next = NextCasillaAuxiliar(st);
 		}
@@ -1133,20 +1181,22 @@ EstadoA ComportamientoAuxiliar::applyA(Action accion, const EstadoA &st, bool &a
 	return next;
 }
 
-//TODO: Arreglar refinamiento de la heurística (funciona sin él)
 int ComportamientoAuxiliar::Heuristica(const EstadoA &st, const EstadoA &final)
 {
 	if(st.f == final.f && st.c == final.c)
 		return 0;
 	// Heurística del máximo
 	int h = max(abs(st.f - final.f), abs(st.c - final.c));
+
 	// Pendiente
 	double m;
 	if(st.c==final.c) m = (st.f>final.f) ? -INF : INF;
 	else if(st.f==final.f) m=0;
 	else if((st.f-final.f)==(st.c-final.c)) m=1;
 	else if((st.f-final.f)==-(st.c-final.c)) m=-1;
-	else m = (double)(st.f-final.f)/(st.c-final.c);
+	else {
+		m = (double)(st.f-final.f)/(st.c-final.c);
+	}
 
 	// Octante
 	int octante;	
@@ -1167,31 +1217,10 @@ int ComportamientoAuxiliar::Heuristica(const EstadoA &st, const EstadoA &final)
 		if(st.f>final.f) octante = 0;
 		else octante = 4;
 	}
-
-	// int delta_f = final.f - st.f;
-	// int delta_c = final.c - st.c;
-
-	// // Normaliza a dirección (diagonal más cercana)
-	// int df = (delta_f > 0) - (delta_f < 0); // será -1, 0 o 1
-	// int dc = (delta_c > 0) - (delta_c < 0);
-
-	// // Mapear (df, dc) a orientación (0 a 7)
-	// int direccion;
-	// if(df == -1 && dc == 0) direccion = 0;
-	// else if(df == -1 && dc == 1) direccion = 1;
-	// else if(df == 0 && dc == 1) direccion = 2;
-	// else if(df == 1 && dc == 1) direccion = 3;
-	// else if(df == 1 && dc == 0) direccion = 4;
-	// else if(df == 1 && dc == -1) direccion = 5;
-	// else if(df == 0 && dc == -1) direccion = 6;
-	// else if(df == -1 && dc == -1) direccion = 7;
-	// else direccion = st.brujula; // Ya está en el objetivo, no necesita girar
-	// // Incremento de la heurística
-	int inc = (octante - st.brujula + 8) % 8;
+	// Incremento de la heurística
+	int inc = ((octante - st.brujula + 8) % 8);
 	
 	return h+inc;
-
-	// return 0;
 }
 
 int ComportamientoAuxiliar::CalcularCoste(Action accion, const EstadoA &st)
@@ -1248,7 +1277,7 @@ int ComportamientoAuxiliar::CalcularCoste(Action accion, const EstadoA &st)
 	return coste;
 }
 
-list<Action> ComportamientoAuxiliar::A_Estrella(const EstadoA &inicio, const EstadoA &final) {
+list<Action> ComportamientoAuxiliar::A_Estrella(const EstadoA &inicio, const EstadoA &final, const Sensores & sensores) {
 	NodoA current_node;
 	min_priority_queue frontier;
 	set<EstadoA> explored;
@@ -1285,7 +1314,7 @@ list<Action> ComportamientoAuxiliar::A_Estrella(const EstadoA &inicio, const Est
 			child.secuencia = current_node.secuencia;
 
 			bool accesible = true;
-			child.estado = applyA(accion, current_node.estado, accesible);
+			child.estado = applyA(accion, current_node.estado, accesible, sensores);
 			if(!accesible) continue;
 			child.g = current_node.g + CalcularCoste(accion, current_node.estado);
 			child.h = Heuristica(child.estado, final);
@@ -1328,7 +1357,7 @@ Action ComportamientoAuxiliar::ComportamientoAuxiliarNivel_E(Sensores sensores)
 		inicio.zapatillas = false;
 		fin.f = sensores.destinoF;
 		fin.c = sensores.destinoC;
-		plan = AnchuraAuxiliar(inicio, fin);
+		plan = AnchuraAuxiliar(inicio, fin, sensores);
 		VisualizaPlan(inicio, plan);
 		hayPlan = plan.size() != 0;
 	}

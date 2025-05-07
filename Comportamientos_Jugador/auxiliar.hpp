@@ -105,6 +105,11 @@ public:
 		baneados.resize(16, false);
 		decision = -1;
 		mapaFrecuencias.resize(size, vector<int>(size, 0));
+
+		hayPlan = false;
+		plan.clear();
+		tiempo_recarga = 0;
+		recargar = false;
 	}
 	/**
 	 * @brief Constructor para los niveles 2,3
@@ -290,19 +295,21 @@ public:
 
 	/***************************** NIVEL E ********************************************/
 
-	list<Action> AnchuraAuxiliar(const EstadoA &inicio, const EstadoA &final);
+	list<Action> AnchuraAuxiliar(const EstadoA &inicio, const EstadoA &final, const Sensores & sensores);
 
 	bool IsSolution(const EstadoA &estado, const EstadoA &final);
-	bool CasillaAccesibleAuxiliar(const EstadoA &st);
+	bool CasillaAccesibleAuxiliar(const EstadoA &st, const Sensores & sensores);
 	EstadoA NextCasillaAuxiliar(const EstadoA &st);
-	EstadoA applyA(Action accion, const EstadoA &st, bool &accesible);
+	EstadoA applyA(Action accion, const EstadoA &st, bool &accesible, const Sensores & sensores);
 	bool Find(const NodoA &st, const list<NodoA> &lista);
 	void VisualizaPlan(const EstadoA &st, const list<Action> &plan);
 	void PintaPlan(const list<Action> &plan, bool zap);
 	void AnularMatrizA(vector<vector<unsigned char>> &m);
 	int Heuristica(const EstadoA &st, const EstadoA &final);
 	int CalcularCoste(Action accion, const EstadoA &st);
-	list<Action> A_Estrella(const EstadoA &inicio, const EstadoA &final);
+	list<Action> A_Estrella(const EstadoA &inicio, const EstadoA &final, const Sensores & sensores);
+
+	bool HayQueReplanificar(const Sensores & sensores, const Action & accion, const EstadoA & estado);
 
 	Action ComportamientoAuxiliarNivel_0(Sensores sensores);
 	Action ComportamientoAuxiliarNivel_1(Sensores sensores);
@@ -329,6 +336,9 @@ private:
 
 	list<Action> plan;
 	bool hayPlan;
+
+	int tiempo_recarga;
+	bool recargar;
 };
 
 #endif

@@ -83,6 +83,12 @@ public:
 		contador = 0;
 		baneados.resize(16, false);
 		mapaFrecuencias.resize(size, vector<int>(size, 0));
+
+		tiempo_espera = tiempo_recarga = 0;
+		recargar = false;
+		hayPlan = false;
+		plan.clear();
+		objetivo_anterior = {0,0};
 	}
 
 	/**
@@ -256,16 +262,18 @@ public:
 
 
 	bool IsSolution(const EstadoR &estado, const EstadoR &final);
-	bool CasillaAccesibleRescatador(const EstadoR &st, int impulso);
+	bool CasillaAccesibleRescatador(const EstadoR &st, int impulso, const Sensores & sensores);
 	EstadoR NextCasillaRescatador(const EstadoR &st, int impulso);
-	EstadoR applyR(Action accion, const EstadoR &st, bool &accesible);
+	EstadoR applyR(Action accion, const EstadoR &st, bool &accesible, const Sensores & sensores);
 	void VisualizaPlan(const EstadoR &st, const list<Action> &plan);
 	void PintaPlan(const list<Action> &plan, bool zap);
 	void AnularMatrizA(vector<vector<unsigned char>> &m);
 	int Heuristica(const EstadoR &st, const EstadoR &final);
 	int CalcularCoste(Action accion, const EstadoR &st);
 
-	list<Action> Dijkstra(const EstadoR &inicio, const EstadoR &final);
+	list<Action> Dijkstra(const EstadoR &inicio, const EstadoR &final, const Sensores & sensores);
+
+	bool HayQueReplanificar(const Sensores & sensores, const Action & accion, const EstadoR & estado);
 
 	Action ComportamientoRescatadorNivel_0(Sensores sensores);
 	Action ComportamientoRescatadorNivel_1(Sensores sensores);
@@ -286,9 +294,14 @@ private:
 	int contador;
 	vector<bool> baneados;
 	vector<vector<int>> mapaFrecuencias;
-
+	
 	list<Action> plan;
 	bool hayPlan;
+
+	int tiempo_espera;
+	int tiempo_recarga;
+	bool recargar;
+	pair<int,int> objetivo_anterior;
 };
 
 #endif
