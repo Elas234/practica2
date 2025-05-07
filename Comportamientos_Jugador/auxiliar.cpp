@@ -203,8 +203,8 @@ int ComportamientoAuxiliar::SelectCasilla(const Sensores & sensores, const vecto
 
 int ComportamientoAuxiliar::SelectCasillaAllAround_LVL1(const pair<int,int> & orig, const vector<int> & casillas_interesantes,  const vector<bool> & is_interesting, Orientacion rumbo) {
 	const int ALCANZABLES = 8;
-	const int NUM_RELEVANT = 5;
-	
+	const int NUM_RELEVANT = 6;
+
 	const char RELEVANT[NUM_RELEVANT] = {'X', '?', 'D', 'C', 'S'};
 	const int POINTS[NUM_RELEVANT] = {10, 10, 10, 10, 10};
 
@@ -574,10 +574,28 @@ Action ComportamientoAuxiliar::SelectAction(int decision, Orientacion rumbo)
 	return action;
 }
 
+void GenerateLevel(int level, vector<int> & filas, vector<int> & columnas) {
+	filas.clear();
+	columnas.clear();
+	int n = -level;
+	for(int i=0; i<=level; ++i) {
+		filas.push_back(n);
+	}
+	while(n < level) {
+		++n;
+		filas.push_back(n);
+	}
+	for(int i=0; i<2*level+1; ++i) {
+		filas.push_back(level);
+	}
+
+}
+
 void ComportamientoAuxiliar::OndaDeCalor(int f, int c) {
 
-	int calor = 16;
-	const int MAX_LEVEL = 3;
+	int calor = 1;
+	const int MAX_LEVEL = 5;
+	const int LEVELS = 1;
 	vector<int> m[MAX_LEVEL+1][2];
 
 	m[0][0] = m[0][1] = {0};
@@ -591,11 +609,18 @@ void ComportamientoAuxiliar::OndaDeCalor(int f, int c) {
 	m[3][0] = {-3,-3,-3,-3,-2,-1,0,1,2,3,3,3,3,3,3,3,2,1,0,-1,-2,-3,-3,-3};
 	m[3][1] = {0,1,2,3,3,3,3,3,3,3,2,1,0,-1,-2,-3,-3,-3,-3,-3,-3,-3,-2,-1};
 
+	m[4][0] = {-4,-4,-4,-4,-4,-3,-2,-1,0,1,2,3,4,4,4,4,4,4,4,4,4,3,2,1,0,-1,-2,-3,-4,-4,-4,-4};
+	m[4][1] = {0,1,2,3,4,4,4,4,4,4,4,4,4,3,2,1,0,-1,-2,-3,-4,-4,-4,-4,-4,-4,-4,-4,-4,-3,-2,-1};
+
+	m[5][0] = {-5,-5,-5,-5,-5,-5,-4,-3,-2,-1,0,1,2,3,4,5,5,5,5,5,5,5,5,5,5,5,4,3,2,1,0,-1,-2,-3,-4,-5,-5,-5,-5,-5};
+	m[5][1] = {0,1,2,3,4,5,5,5,5,5,5,5,5,5,5,5,4,3,2,1,0,-1,-2,-3,-4,-5,-5,-5,-5,-5,-5,-5,-5,-5,-5,-5,-4,-3,-2,-1};
+
 	// mapaFrecuencias[f][c] += calor;
-	for(int level=0; level<MAX_LEVEL; ++level) {
+	for(int level=0; level<LEVELS; ++level) {
 		for(int j=0; j<m[level][0].size(); ++j) {
 			int nf = f + m[level][0][j];
 			int nc = c + m[level][1][j];
+			if(nf < 0 || nc < 0 || nf >= mapaFrecuencias.size() || nc >= mapaFrecuencias[0].size()) continue;
 			mapaFrecuencias[nf][nc] += calor;
 		}
 		calor /= 2;
@@ -747,10 +772,9 @@ Action ComportamientoAuxiliar::ComportamientoAuxiliarNivel_1(Sensores sensores)
 		return IDLE;
 	}
 
-	//TODO : incrementar frecuencias alrededor (funcion)
-
 	SituarSensorEnMapa(sensores);
 	if(last_action == WALK)
+		// OndaDeCalor(sensores.posF, sensores.posC);
 		mapaFrecuencias[sensores.posF][sensores.posC]++;
 
 	if(sensores.superficie[0] == 'D') {

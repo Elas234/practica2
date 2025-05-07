@@ -621,8 +621,9 @@ Action ComportamientoRescatador::SelectAction(int decision, Orientacion rumbo)
 
 void ComportamientoRescatador::OndaDeCalor(int f, int c) {
 
-	int calor = 16;
-	const int MAX_LEVEL = 3;
+	int calor = 128;
+	const int MAX_LEVEL = 5;
+	const int LEVELS = 4;
 	vector<int> m[MAX_LEVEL+1][2];
 
 	m[0][0] = m[0][1] = {0};
@@ -636,11 +637,18 @@ void ComportamientoRescatador::OndaDeCalor(int f, int c) {
 	m[3][0] = {-3,-3,-3,-3,-2,-1,0,1,2,3,3,3,3,3,3,3,2,1,0,-1,-2,-3,-3,-3};
 	m[3][1] = {0,1,2,3,3,3,3,3,3,3,2,1,0,-1,-2,-3,-3,-3,-3,-3,-3,-3,-2,-1};
 
+	m[4][0] = {-4,-4,-4,-4,-4,-3,-2,-1,0,1,2,3,4,4,4,4,4,4,4,4,4,3,2,1,0,-1,-2,-3,-4,-4,-4,-4};
+	m[4][1] = {0,1,2,3,4,4,4,4,4,4,4,4,4,3,2,1,0,-1,-2,-3,-4,-4,-4,-4,-4,-4,-4,-4,-4,-3,-2,-1};
+
+	m[5][0] = {-5,-5,-5,-5,-5,-5,-4,-3,-2,-1,0,1,2,3,4,5,5,5,5,5,5,5,5,5,5,5,4,3,2,1,0,-1,-2,-3,-4,-5,-5,-5,-5,-5};
+	m[5][1] = {0,1,2,3,4,5,5,5,5,5,5,5,5,5,5,5,4,3,2,1,0,-1,-2,-3,-4,-5,-5,-5,-5,-5,-5,-5,-5,-5,-5,-5,-4,-3,-2,-1};
+
 	// mapaFrecuencias[f][c] += calor;
-	for(int level=0; level<MAX_LEVEL; ++level) {
+	for(int level=0; level<LEVELS; ++level) {
 		for(int j=0; j<m[level][0].size(); ++j) {
 			int nf = f + m[level][0][j];
 			int nc = c + m[level][1][j];
+			if(nf < 0 || nc < 0 || nf >= mapaFrecuencias.size() || nc >= mapaFrecuencias[0].size()) continue;
 			mapaFrecuencias[nf][nc] += calor;
 		}
 		calor /= 2;
@@ -777,8 +785,6 @@ Action ComportamientoRescatador::ComportamientoRescatadorNivel_1(Sensores sensor
 		// Low battery
 		return IDLE;
 	}
-
-	//TODO : incrementar frecuencias alrededor (funcion)
 
 	SituarSensorEnMapa(sensores);
 	if(last_action == WALK || last_action == RUN) {
