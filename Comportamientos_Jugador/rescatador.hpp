@@ -39,10 +39,11 @@ struct NodoR
 {
 	EstadoR estado;
 	vector<Action> secuencia;
+	bool path_inseguro;
 	int g;
 	int h;
 
-	NodoR() : g(0) , h(0) {}
+	NodoR() : g(0) , h(0), path_inseguro(false) {}
 
 	bool operator==(const NodoR &nodo) const
 	{
@@ -97,12 +98,19 @@ public:
 		contador = 0;
 		baneados.resize(16, false);
 		mapaFrecuencias.resize(size, vector<int>(size, 0));
+		baneadas.resize(size, vector<bool>(size, false));
 
 		tiempo_espera = tiempo_recarga = 0;
 		recargar = false;
 		hayPlan = false;
 		plan.clear();
+		planBases.clear();
+		hayPlanBases = false;
+		index = indexBases = 0;
 		objetivo_anterior = {0,0};
+		conozco_bases = false;
+		conozco_zapatillas = false;
+		plan_inseguro = false;
 	}
 
 	/**
@@ -279,6 +287,7 @@ public:
 
 	bool IsSolution(const EstadoR &estado, const EstadoR &final);
 	bool CasillaAccesibleRescatador(const EstadoR &st, int impulso, int nivel);
+	bool CasillaAccesibleRescatadorOpciones(const EstadoR &st, int impulso, int opcion);
 	EstadoR NextCasillaRescatador(const EstadoR &st, int impulso);
 	EstadoR applyR(Action accion, const EstadoR &st, bool &accesible, const Sensores & sensores);
 	void VisualizaPlan(const EstadoR &st, const vector<Action> &plan);
@@ -288,9 +297,17 @@ public:
 	int CalcularCoste(Action accion, const EstadoR &st);
 
 	vector<Action> Dijkstra(const EstadoR &inicio, const EstadoR &final, const Sensores & sensores);
-	vector<Action> A_estrella(const EstadoR &inicio, const EstadoR &final, const Sensores & sensores);
+	NodoR A_estrella(const EstadoR &inicio, const EstadoR &final, const Sensores & sensores);
 
+	// pre : conozco_bases == true
+	NodoR BuscaCasillas(const EstadoR &inicio, const Sensores & sensores, const vector<char>& casilla_objetivo);
+	pair<int,int> CasillaMasFavorable(int f, int c);
+	Action BuscaObjetivo(Sensores sensores, int f, int c);
+	bool EncontreCasilla(const EstadoR &st, vector<char> casillas_objetivo);
 	bool HayQueReplanificar(const Sensores & sensores, const Action & accion, const EstadoR & estado);
+	int SelectCasillaAllAround_LVL4(Sensores sensores, const vector<int> & casillas_interesantes, 
+		const vector<bool> & is_interesting);
+	Action Exploracion(Sensores sensores);
 
 	Action ComportamientoRescatadorNivel_0(Sensores sensores);
 	Action ComportamientoRescatadorNivel_1(Sensores sensores);
@@ -319,7 +336,14 @@ private:
 	int tiempo_espera;
 	int tiempo_recarga;
 	bool recargar;
+	bool conozco_bases;
+	bool conozco_zapatillas;
 	pair<int,int> objetivo_anterior;
+	bool hayPlanBases;
+	vector<Action> planBases;
+	int indexBases;
+	bool plan_inseguro;
+	vector<vector<bool>> baneadas;
 };
 
 #endif

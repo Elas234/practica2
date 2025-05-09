@@ -112,6 +112,10 @@ public:
 		plan.clear();
 		tiempo_recarga = 0;
 		recargar = false;
+		conozco_bases = false;
+		conozco_zapatillas = false;
+		hayPlanBases = false;
+		indexBases = 0;
 	}
 	/**
 	 * @brief Constructor para los niveles 2,3
@@ -312,6 +316,7 @@ public:
 	int Heuristica(const EstadoA &st, const EstadoA &final);
 	int CalcularCoste(Action accion, const EstadoA &st);
 	vector<Action> A_Estrella(const EstadoA &inicio, const EstadoA &final, const Sensores & sensores);
+	vector<Action> DijkstraPuestosBase(const EstadoA &inicio, const Sensores & sensores);
 
 	bool HayQueReplanificar(const Sensores & sensores, const Action & accion, const EstadoA & estado);
 
@@ -345,6 +350,12 @@ private:
 
 	int tiempo_recarga;
 	bool recargar;
+	bool conozco_bases;
+	bool conozco_zapatillas;
+	vector<Action> planBases;
+	int indexBases;
+	bool hayPlanBases;
+	
 };
 
 #endif

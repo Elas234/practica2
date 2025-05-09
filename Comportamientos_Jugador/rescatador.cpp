@@ -96,6 +96,8 @@ void ComportamientoRescatador::SituarSensorEnMapa(const Sensores & sensores) {
 	pair<int,int> orig = {f, c};
 	for(int i=0; i<16; ++i) {
 		// Convierte la posición del sensor en la posición del mapa
+		if(sensores.superficie[i] == 'X') conozco_bases = true;
+		if(sensores.superficie[i] == 'D') conozco_zapatillas = true;
 		pair<int,int> casilla = VtoM(i, sensores.rumbo, orig);
 		int nf = casilla.first;
 		int nc = casilla.second;
@@ -689,7 +691,7 @@ Action ComportamientoRescatador::ComportamientoRescatadorNivel_0(Sensores sensor
 
 	SituarSensorEnMapa(sensores);
 	if(last_action == WALK || last_action == RUN)
-		mapaFrecuencias[f][c]++;
+		OndaDeCalor(f,c);
 
 	if(sensores.superficie[0] == 'D') {
 		tiene_zapatillas = true;
@@ -867,16 +869,58 @@ bool ComportamientoRescatador::CasillaAccesibleRescatador(const EstadoR &st, int
 	int dif = abs(mapaCotas[next.f][next.c] - mapaCotas[st.f][st.c]);
 	char inter = mapaResultado[st.f+sf[st.brujula]][st.c+sc[st.brujula]];
 	char siguiente = mapaResultado[next.f][next.c];
-	bool check1 = false, check2 = false, check3 = false, check4 = false;
+	bool check1 = false, check2 = false, check3 = false, check4 = false, check5 = false;
 	check1 = siguiente != 'P' && siguiente != 'M' && siguiente != 'B';
 	check2 = inter != 'P' && inter != 'M' && inter != 'B';
 	check3 = (dif <= 1) || (st.zapatillas && (dif <= 2));
 	check4 = 3 <= next.f && next.f < mapaResultado.size()-3 && 3 <= next.c && next.c < mapaResultado[0].size()-3;
+	check5 = mapaEntidades[next.f][next.c] != 'a' && mapaEntidades[st.f+sf[st.brujula]][st.c+sc[st.brujula]] != 'a';
 	if(nivel == 2)
 		return check1 && check2 && check3;
 	else {
-		return check1 && check2 && (check3 || siguiente == '?' || mapaResultado[st.f][st.c] == '?') && check4;
+		return check1 && check2 && (check3 || siguiente == '?' || mapaResultado[st.f][st.c] == '?') && check4 && check5;
 	}
+}
+
+// Opciones:
+// 0: Usado para Dijkstra en nivel 2, considera si puede ir a la casilla
+// 1: Usado para A* en nivel 4, considera que puede pasar por casillas desconocidas
+// 2: Usado para replanificar, no considera que puede pasar por casillas desconocidas ni por agua (evitar que pase por agua)
+bool ComportamientoRescatador::CasillaAccesibleRescatadorOpciones(const EstadoR &st, int impulso, int opcion = 0)
+{
+	EstadoR next = NextCasillaRescatador(st, impulso);
+	int dif = abs(mapaCotas[next.f][next.c] - mapaCotas[st.f][st.c]);
+	char inter = mapaResultado[st.f+sf[st.brujula]][st.c+sc[st.brujula]];
+	char siguiente = mapaResultado[next.f][next.c];
+	bool check1 = siguiente != 'P' && siguiente != 'M' && siguiente != 'B';
+	bool check2 = inter != 'P' && inter != 'M' && inter != 'B';
+	bool check3 = (dif <= 1) || (st.zapatillas && (dif <= 2));
+	bool check4 = 3 <= next.f && next.f < mapaResultado.size()-3 && 3 <= next.c && next.c < mapaResultado[0].size()-3;
+	bool check5 = mapaEntidades[next.f][next.c] != 'a' && mapaEntidades[st.f+sf[st.brujula]][st.c+sc[st.brujula]] != 'a';
+	bool check6 = siguiente != 'A';
+
+	// cout << "check1: " << check1 << endl;
+	// cout << "check2: " << check2 << endl;
+	// cout << "check3: " << check3 << endl;
+	// cout << "check4: " << check4 << endl;
+	// cout << "check5: " << check5 << endl;
+	// cout << "check6: " << check6 << endl;
+
+	bool check = false;
+	switch(opcion) {
+		case 0:
+			check = check1 && check2 && check3;
+			break;
+		case 1:
+			check = check1 && check2 && (check3 || siguiente == '?' || mapaResultado[st.f][st.c] == '?') && check4 && check5;
+			break;
+		case 2:
+			check = check1 && check2 && (check3 || siguiente == '?' || mapaResultado[st.f][st.c] == '?') && check4 && check5 && check6;
+			break;
+		default:
+			break;
+	}
+	return check;
 }
 
 
@@ -975,13 +1019,15 @@ void ComportamientoRescatador::VisualizaPlan(const EstadoR &st, const vector<Act
 EstadoR ComportamientoRescatador::applyR(Action accion, const EstadoR &st, bool &accesible, const Sensores & sensores)
 {
 	EstadoR next = st;
+	int opcion = 0;
+	if(sensores.nivel == 4) opcion = 1;
 	int impulso = 1;
 	switch (accion)
 	{
 	case RUN:
 		impulso = 2;
 	case WALK:
-		if (CasillaAccesibleRescatador(st, impulso, sensores.nivel)) {
+		if (CasillaAccesibleRescatadorOpciones(st, impulso, opcion)) {
 			next = NextCasillaRescatador(st, impulso);
 		}
 		else {
@@ -1212,7 +1258,88 @@ vector<Action> ComportamientoRescatador::Dijkstra(const EstadoR &inicio, const E
 	return path;
 }
 
-vector<Action> ComportamientoRescatador::A_estrella(const EstadoR &inicio, const EstadoR &final, const Sensores & sensores) {
+bool ComportamientoRescatador::EncontreCasilla(const EstadoR &st, vector<char> casillas_objetivo) {
+	for (char c : casillas_objetivo) {
+		if (mapaResultado[st.f][st.c] == c) {
+			return true;
+		}
+	}
+	return false;
+}
+
+NodoR ComportamientoRescatador::BuscaCasillas(const EstadoR &inicio, const Sensores & sensores, const vector<char>& casillas_objetivo) {
+	NodoR current_node;
+	min_priority_queue frontier;
+	set<EstadoR> explored;
+	vector<Action> path;
+
+	current_node.estado = inicio; // Asigna el estado inicial al nodo actual
+	current_node.g = 0;
+	// current_node.h = Heuristica(current_node.estado, final);
+
+	frontier.push(current_node);
+
+	bool SolutionFound = EncontreCasilla(current_node.estado, casillas_objetivo);
+
+	while (!SolutionFound && !frontier.empty())
+	{
+		// cout << "Explorando nodo: " << current_node.estado.f << ", " << current_node.estado.c << endl;
+		frontier.pop();
+
+		if (mapaResultado[current_node.estado.f][current_node.estado.c] == 'D')
+		{
+			current_node.estado.zapatillas = true;
+		}
+		explored.insert(current_node.estado);
+
+
+		SolutionFound = EncontreCasilla(current_node.estado, casillas_objetivo);
+		if(SolutionFound) break;
+
+		Action acciones[4] = {RUN, WALK, TURN_L, TURN_SR};
+		for(Action accion : acciones) {
+			NodoR child;
+			child.estado = current_node.estado;
+			child.secuencia = current_node.secuencia;
+
+			bool accesible = true;
+			child.estado = applyR(accion, current_node.estado, accesible, sensores);
+			if(!accesible) continue;
+			int coste = CalcularCoste(accion, current_node.estado);
+			if (mapaResultado[child.estado.f][child.estado.c] == '?')
+			{
+				coste += 150;
+			}
+			child.g = current_node.g + coste;
+			// child.h = Heuristica(child.estado, final);
+			
+			if (explored.find(child.estado) == explored.end())
+			{
+				child.secuencia.push_back(accion);
+				frontier.push(child);
+			}
+		}
+
+		if (!SolutionFound && !frontier.empty())
+		{
+			current_node = frontier.top();
+			while(explored.find(current_node.estado) != explored.end() && !frontier.empty())
+			{
+				frontier.pop();	
+				current_node = frontier.top();
+			}
+		}
+		SolutionFound = EncontreCasilla(current_node.estado, casillas_objetivo);
+		plan_inseguro = mapaResultado[current_node.estado.f][current_node.estado.c] == '?';
+	}
+
+	if (SolutionFound)
+		path = current_node.secuencia;
+
+	return current_node;
+}
+
+NodoR ComportamientoRescatador::A_estrella(const EstadoR &inicio, const EstadoR &final, const Sensores & sensores) {
 	NodoR current_node;
 	min_priority_queue frontier;
 	set<EstadoR> explored;
@@ -1250,7 +1377,12 @@ vector<Action> ComportamientoRescatador::A_estrella(const EstadoR &inicio, const
 			bool accesible = true;
 			child.estado = applyR(accion, current_node.estado, accesible, sensores);
 			if(!accesible) continue;
-			child.g = current_node.g + CalcularCoste(accion, current_node.estado);
+			int coste = CalcularCoste(accion, current_node.estado);
+			if (mapaResultado[child.estado.f][child.estado.c] == '?')
+			{
+				coste += 15;
+			}
+			child.g = current_node.g + coste;
 			child.h = Heuristica(child.estado, final);
 			
 			if (explored.find(child.estado) == explored.end())
@@ -1270,12 +1402,13 @@ vector<Action> ComportamientoRescatador::A_estrella(const EstadoR &inicio, const
 			}
 		}
 		SolutionFound = IsSolution(current_node.estado, final);
+		plan_inseguro = mapaResultado[current_node.estado.f][current_node.estado.c] == '?';
 	}
 
 	if (SolutionFound)
 		path = current_node.secuencia;
 
-	return path;
+	return current_node;
 }
 
 Action ComportamientoRescatador::ComportamientoRescatadorNivel_2(Sensores sensores)
@@ -1286,21 +1419,20 @@ Action ComportamientoRescatador::ComportamientoRescatadorNivel_2(Sensores sensor
 		// Invocar al método de búsqueda
 		index = 0;
 		plan.clear();
+		
 		EstadoR inicio, fin;
 		inicio.f = sensores.posF;
 		inicio.c = sensores.posC;
 		inicio.brujula = sensores.rumbo;
 		fin.f = sensores.destinoF;
 		fin.c = sensores.destinoC;
+		
 		inicio.zapatillas = false;
-		cout << "Dijkstra" << endl;
-		if(sensores.nivel == 2)
-			plan = Dijkstra(inicio, fin, sensores);
-		else // Nivel 4
-			plan = A_estrella(inicio, fin, sensores);
-		cout << "No es Dijkstra" << endl;
+		plan = Dijkstra(inicio, fin, sensores);
+
 		VisualizaPlan(inicio, plan);
 		PintaPlan(plan, tiene_zapatillas);
+		cout << plan.size() << endl;
 		hayPlan = (plan.size() != 0);
 	}
 	if (hayPlan && index < plan.size())
@@ -1312,6 +1444,97 @@ Action ComportamientoRescatador::ComportamientoRescatadorNivel_2(Sensores sensor
 	{
 		index = 0;
 		hayPlan = false;
+	}
+	return accion;
+}
+
+void UnionVectores(const vector<Action> &v1, const vector<Action> &v2, vector<Action> &res)
+{
+	res.clear();
+	res.insert(res.end(), v1.begin(), v1.end());
+	res.insert(res.end(), v2.begin(), v2.end());
+}
+
+pair<int,int> ComportamientoRescatador::CasillaMasFavorable(int f, int c)
+{
+	pair<int,int> casilla_mas_cercana = {-1,-1};
+	int distancia_minima = INF;
+	for(int i=0; i<mapaResultado.size(); ++i) {
+		for(int j=0; j<mapaResultado[0].size(); ++j) {
+			if(mapaResultado[i][j] == 'C' && !baneadas[i][j]) {
+				int distancia = max(abs(i-f), abs(j-c));
+				if(distancia < distancia_minima) {
+					casilla_mas_cercana = {i,j};
+					distancia_minima = distancia;
+				}
+			}
+		}
+	}
+	return casilla_mas_cercana;
+}
+
+Action ComportamientoRescatador::BuscaObjetivo(Sensores sensores, int f = -1, int c = -1)
+{
+	if(f == -1) f = sensores.destinoF;
+	if(c == -1) c = sensores.destinoC;
+	Action accion = IDLE;
+	if (!hayPlan)
+	{
+		// Invocar al método de búsqueda
+		index = 0;
+		plan.clear();
+		plan_inseguro = false;
+		NodoR nodo_objetivo;
+		NodoR nodo_base;
+		pair<vector<Action>,int> path_coste;
+		EstadoR inicio, fin;
+		inicio.f = sensores.posF;
+		inicio.c = sensores.posC;
+		inicio.brujula = sensores.rumbo;
+		fin.f = f;
+		fin.c = c;
+		
+		cout << "Dijkstra" << endl;
+		cout << "Inicio: " << inicio.f << ", " << inicio.c << endl;
+		cout << "Fin: " << fin.f << ", " << fin.c << endl;
+
+		inicio.zapatillas = tiene_zapatillas;
+		nodo_objetivo = A_estrella(inicio, fin, sensores);
+		cout << "Conozco bases:" << boolalpha << conozco_bases << endl;
+		if(conozco_bases) {
+			nodo_base = BuscaCasillas(nodo_objetivo.estado, sensores, {'X'});
+			if(nodo_base.secuencia.size() == 0) {
+				conozco_bases = false;
+			}
+		}
+		UnionVectores(nodo_objetivo.secuencia, nodo_base.secuencia, path_coste.first);
+		path_coste.second = nodo_objetivo.g + nodo_base.g;
+		plan_inseguro = nodo_base.path_inseguro || nodo_objetivo.path_inseguro;
+		// Compruebo si llego (si no estoy muy seguro, no me arriesgo mucho)
+		cout << "Plan inseguro? " << boolalpha << plan_inseguro << endl;
+		bool llego = (plan_inseguro && path_coste.second < 0.7*sensores.energia) || path_coste.second < sensores.energia;
+		if(llego) 
+			plan = path_coste.first;
+		
+		cout << "No es Dijkstra" << endl;
+		VisualizaPlan(inicio, plan);
+		PintaPlan(plan, tiene_zapatillas);
+		cout << plan.size() << endl;
+		hayPlan = (plan.size() != 0);
+		
+	}
+	if (hayPlan && index < plan.size())
+	{
+		cout << "Estoy siguiendo un plan" << endl;
+		accion = plan[index];
+		++index;
+	}
+	if (index == plan.size())
+	{
+		cout << "Termino plan" << endl;
+		index = 0;
+		hayPlan = false;
+		plan.clear();
 	}
 	return accion;
 }
@@ -1350,20 +1573,202 @@ bool ComportamientoRescatador::HayQueReplanificar(const Sensores & sensores, con
 	if(sensores.choque) return true;
 	if(accion != WALK && accion != RUN) return false;
 	int impulso = (accion == RUN) ? 2 : 1;
-	if(!CasillaAccesibleRescatador(estado, impulso, 2)) return true;
+	if(!CasillaAccesibleRescatadorOpciones(estado, impulso, 1)) {
+
+		return true;
+	}
 
 	return false;
 }
 
-//TODO : A* para rescatador en lugar de Dijkstra
-//TODO : A* para puestos base (multidirigido) en lugar de reactivo
-//TODO : mejorar comportamiento nivel 1 para auxiliar
+int ComportamientoRescatador::SelectCasillaAllAround_LVL4(Sensores sensores, const vector<int> & casillas_interesantes, 
+	const vector<bool> & is_interesting) 
+{
+	bool zap = tiene_zapatillas;
+	int rumbo = sensores.rumbo;
+	pair<int,int> orig = {sensores.posF, sensores.posC};
+	pair<int,int> dest = {sensores.destinoF, sensores.destinoC};
+
+	const int ALCANZABLES = 16;
+	const int NUM_RELEVANT = 5;
+	int puntos_zapatillas = zap ? 50 : 10;
+
+	const int PESO_DESTINO = 100;
+
+	const char RELEVANT[NUM_RELEVANT] = {'X', 'D', '?', 'C', 'S'};
+	const int POINTS[NUM_RELEVANT] = {10, puntos_zapatillas, 10, 10, 10};
+
+	if(casillas_interesantes.size() == 0) return -1;
+	if(casillas_interesantes.size() == 1) return casillas_interesantes[0];
+
+	// Hay más de una, me voy por donde haya más y mejores casillas interesantes
+
+	// Matriz de decisión
+
+	// Cada casilla accesible tiene un valor asociado que depende de las 3 casillas que tiene enfrente
+
+	const int CASILLAS_POR_SECCION = 3;
+	const pair<int,int> M[ALCANZABLES/2][CASILLAS_POR_SECCION] = 
+	{
+		{{-1,-1},{-1, 0},{-1, 1}}, // ir a 0
+		{{-1, 0},{-1, 1},{ 0, 1}}, // ir a 1
+		{{-1, 1},{ 0, 1},{ 1, 1}}, // ir a 2
+		{{ 0, 1},{ 1, 1},{ 1, 0}}, // ir a 3
+		{{ 1, 1},{ 1, 0},{ 1,-1}}, // ir a 4
+		{{ 1, 0},{ 1,-1},{ 0,-1}}, // ir a 5
+		{{ 1,-1},{ 0,-1},{-1,-1}}, // ir a 6
+		{{ 0,-1},{-1,-1},{-1, 0}}  // ir a 7
+	};
+
+	int peso_altura = 1;
+	int peso_frecuencia = 10;
+	int peso_frecuencia_adyacentes = 0;
+
+	int puntuacion_destino[ALCANZABLES] = {0};
+	int puntuaciones_iniciales[ALCANZABLES] = 
+	{100, 50, 10, 5, 1, 5 , 10, 50,
+	 100, 50, 10, 5, 1, 5 , 10, 50};
+
+	for(int i=0; i<ALCANZABLES; ++i) {
+		if(!is_interesting[8*(i/8) + (rumbo+i)%8]) continue;
+		puntuacion_destino[8*(i/8) + (rumbo+i)%8] = puntuaciones_iniciales[i];
+	}
+
+	int max_points = -INF;
+	int decision = 0;
+	for(int i=0; i<ALCANZABLES; ++i) {
+		if(!is_interesting[i]) continue;
+		int level = 1+(i/8);
+		int pos = i&7; // i%8
+		int f = orig.first + level * sf[pos];
+		int c = orig.second + level * sc[pos];
+		for(int j=0; j<CASILLAS_POR_SECCION; ++j) {
+			int nf = f + M[pos][j].first;
+			int nc = c + M[pos][j].second;
+			char x = mapaResultado[nf][nc];
+			int h = mapaCotas[nf][nc];
+			char a = mapaEntidades[nf][nc];
+			for(int k=0; k<NUM_RELEVANT; ++k) {
+				if(x == RELEVANT[k]) {
+					// No considero las casillas objetivo con agentes
+					if(a == 'a') continue;
+					// Puntuación inversamente proporcional a la diferencia de altura
+					puntuacion_destino[i] += (POINTS[k] - peso_frecuencia_adyacentes*mapaFrecuencias[nf][nc] - peso_altura*abs(h-mapaCotas[f][c]));
+					puntuacion_destino[i] -= PESO_DESTINO*max(abs(dest.first - nf), abs(dest.second - nc));
+				}
+			}
+		}
+		puntuacion_destino[i] -= (peso_frecuencia * mapaFrecuencias[f][c]);
+		// Actualizar máximo
+		if(puntuacion_destino[i] >= max_points) {
+			max_points = puntuacion_destino[i];
+			decision = i;
+		}
+	}
+
+	// cout << "Puntuaciones: " << endl;
+	// for(int i=0; i<ALCANZABLES; ++i) {
+	// 	cout << i << ": " << puntuacion_destino[i] << endl;
+	// }
+	// cout << "Ganador: " << decision << endl;
+
+	return decision;
+}
+
+Action ComportamientoRescatador::Exploracion(Sensores sensores) {
+	Action action;
+
+	int f = sensores.posF;
+	int c = sensores.posC;
+
+	if(sensores.energia <= 10) {
+		// Low battery
+		return IDLE;
+	}
+
+	SituarSensorEnMapa(sensores);
+	if(last_action == WALK || last_action == RUN) {
+		OndaDeCalor(f,c);
+	}
+
+	if(sensores.superficie[0] == 'D') {
+		tiene_zapatillas = true;
+	}
+
+	if(!TengoTareasPendientes(sensores, action)) {
+		// Casillas que puedo atravesar corriendo
+		vector<bool> transitable(16);
+
+		// Casillas a las que puedo acceder (accesible ==> transitable pero no al revés)
+		vector<bool> accesible(16);
+
+		for(int i=0; i<16; ++i) {
+
+			int level = 1+(i/8);
+			int pos = i&7; // i%8
+			int nf = f + level * sf[pos];
+			int nc = c + level * sc[pos];
+			char s = mapaResultado[nf][nc];
+			int h = mapaCotas[nf][nc];
+			char e = mapaEntidades[nf][nc];
+
+			transitable[i] = (s != 'P' && s != 'M' && s != 'B' && s != '?' && e != 'a' && !baneados[i]);
+			accesible[i] = transitable[i] && ViablePorAltura(h-mapaCotas[f][c], tiene_zapatillas);
+		}
+		vector<int> casillas_interesantes;
+		vector<bool> is_interesting(16, false);
+		CasillasInteresantesAllAround_LVL1({f,c}, accesible, transitable, is_interesting, casillas_interesantes, tiene_zapatillas);
+		// int decision = SelectCasilla(sensores, casillas_interesantes, is_interesting);
+
+		// cout << "Casillas interesantes: " << endl;
+		// for(int i=0; i<casillas_interesantes.size(); ++i) {
+		// 	cout << casillas_interesantes[i] << " ";
+		// }
+		// cout << endl;
+		decision = SelectCasillaAllAround_LVL4(sensores, casillas_interesantes, is_interesting);
+		action = SelectAction(decision, sensores.rumbo);
+	}
+	if(num_acciones - contador == 10) {
+		fill(baneados.begin(), baneados.end(), false);
+	}
+	// Si me voy a chocar, doy media vuelta
+	if((action == WALK && sensores.agentes[2] != '_') || (action == RUN && (sensores.agentes[6] != '_' || sensores.agentes[2] != '_'))) {
+		// Resetea movimientos peligrosos
+		// cout << "Rescatador: me voy a chocar, doy la vuelta" << endl;
+		fill(acciones_pendientes.begin(), acciones_pendientes.end(), 0);
+		acciones_pendientes[TURN_SR_pendientes] = 3;
+		action = TURN_SR;
+		baneados[decision] = true;
+		contador = num_acciones;
+	}
+	// Resetea mapa de entidades
+	for(int i=0; i<16; ++i) {
+		pair<int,int> casilla = VtoM(i, sensores.rumbo, {f,c});
+		int nf = casilla.first;
+		int nc = casilla.second;
+		mapaEntidades[nf][nc] = '?';
+	}
+	last_action = action;
+	++num_acciones;
+
+	return action;
+}
+
+//TODO : A* para rescatador en lugar de Dijkstra DONE
+//TODO : A* para puestos base (multidirigido) en lugar de reactivo DONE
+//TODO : mejorar comportamiento nivel 1 para auxiliar DONE
 //TODO : maybe cambiar condición de redirección para evitar cruzar mucha agua
-//TODO : recargar energía al máximo
+//TODO : recargar energía al máximo DONE
+//TODO : intentar crear onda de calor solo una vez al desplazarse
+
+//TODO : devolver coste en A*
+//TODO : comprobar si puedo llegar a objetivo y después ir a puesto base, si no, recargar
+//!Problema: puede ser que no pueda ni con el máximo de energía, revisar eso más tarde, habría que ponerse en modo exploración
 
 
 //! Errores:
-//! Core dump al replanificar después de recargar (solo da core el rescatador)
+//! Core dump al replanificar después de recargar (solo da core el rescatador) SOLVED (?)
+//! Hay un test case oculto en el que se muere el rescatador y otro en el que muere el auxiliar
 
 //? Teorías: 
 //? En el A* hay un momento en el que se puede acceder a una cola vacía, esto solo ocurre
@@ -1374,48 +1779,227 @@ bool ComportamientoRescatador::HayQueReplanificar(const Sensores & sensores, con
 //? no transitables y no podía llegar al objetivo, así que habría que imprimir que nodos se exploran para ver cuántos
 //? se exploran y ver cuál es el último.
 
+//! El auxiliar salta al vacío y no sé por qué
+
+//? Unknown
+
+//! Si hay puestos bases pero no son accesibles, el rescatador se queda parado pensando
+
+//? Comprobar si hay plan en la primera iteración y si no hay, comportamiento reactivo
+
+// RESUMEN COMPORTAMIENTO RESCATADOR:
+
+// 1. Si tengo poca energía, busco un puesto base, ya sea de forma reactiva o deliberativa
+// 2. Si tengo energía para ir a un objetivo y después a un puesto base, busco un objetivo y solo voy si estoy casi seguro de que puedo llegar y volver
+// 3. Si no estoy seguro, tengo que explorar los alrededores del objetivo, como podría ser una zona costosa, voy al camino más cercano
+// 4. Si llego desde ahí, perfecto, si no, tengo que explorar más, debería hacer un comportamiento nivel 0 pero con cierta preferencia por el objetivo
+// 5. A la vez que exploro, voy comprobando si puedo ir al objetivo y volver, tengo que buscar un equilibrio, pues comprobarlo en cada iteración es costoso
+//   	y no debería volver a ir al camino más cercano, pues la probabilidad de haberlo explorado es alta
+
 Action ComportamientoRescatador::ComportamientoRescatadorNivel_4(Sensores sensores)
 {
 	Action accion = IDLE;
 
-	const int UMBRAL_TIEMPO = 300;
-	const int UMBRAL_ENERGIA = 2700;
-	const int RECARGA = 100;
+	const int UMBRAL_TIEMPO = 0*mapaResultado.size();
+	const int UMBRAL_ENERGIA = 10*mapaResultado.size();
+	const int MAX_ENERGIA = 3000;
+	const int ACCIONES_EXPLORACION = 100;
 
-	if((sensores.energia <= UMBRAL_ENERGIA && (sensores.superficie[0] == 'C' || sensores.superficie[0] == 'X')) || recargar) {
-		// Low battery, abandonar posible comportamiento deliberativo para recargar
-		hayPlan = false;
-		plan.clear();
 
-		cout << tiempo_recarga << endl;
-		
-		if(tiempo_recarga == 0) {
-			recargar = true;
-			hayPlan = false;
-			plan.clear();
-		}
-		++tiempo_recarga;
-		if(tiempo_recarga > RECARGA) {
-			recargar = false;
-			tiempo_recarga = 0;
-		}
-		return ComportamientoRescatadorNivel_0(sensores);
+	// TODO: Esto se hace varias veces si se llama a nivel 0 o 1 (optimizar)
+	if(last_action == RUN || last_action == WALK) {
+		OndaDeCalor(sensores.posF, sensores.posC);
 	}
-	cout << "uwu1" << endl;
-	// Print mapa alturas
+
 	SituarSensorEnMapa(sensores);
 
-	// for(int i=0; i<mapaCotas.size(); ++i) {
-	// 	for(int j=0; j<mapaCotas[i].size(); ++j) {
-	// 		cout << (int)mapaCotas[i][j] << " ";
-	// 	}
-	// 	cout << endl;
-	// }
 	if(sensores.superficie[0] == 'D') {
 		tiene_zapatillas = true;
 	}
-	cout << "uwu2" << endl;
-	// Cuando llegue al objetivo, llamo al auxiliar
+
+	if(sensores.superficie[0] != 'X') {
+		recargar = sensores.energia <= UMBRAL_ENERGIA;
+	}
+
+	
+	cout << "Recargar: " << boolalpha << recargar << endl;
+	/**********************************************************************************************
+	 * ? RECARGAR ENERGÍA 
+	 **********************************************************************************************/
+
+	if(recargar) {
+		// Dijkstra a puestos base
+		hayPlan = false;
+		plan.clear();
+		plan_inseguro = false;
+		index = 0;
+
+		cout << sensores.energia << endl;
+		if(sensores.superficie[0] == 'X') {
+			cout << "Recargando..." << endl;
+			if(sensores.energia == MAX_ENERGIA) {
+				cout << "Voy a dejar de recargar..." << endl;
+				recargar = false;
+			}
+			
+			return IDLE;
+		}
+		
+		
+		
+		cout << sensores.energia << endl;
+		
+
+		cout << "Voy a X" << endl;
+
+		EstadoR estado;
+		estado.f = sensores.posF;
+		estado.c = sensores.posC;
+		estado.brujula = sensores.rumbo;
+		estado.zapatillas = tiene_zapatillas;
+		if(hayPlanBases && HayQueReplanificar(sensores, planBases[indexBases], estado)) {
+			// Borrar plan
+			cout << "replanifico..." << endl;
+			hayPlanBases = false;
+		}
+
+		cout << "No replanifico..." << endl;
+
+		if (!hayPlanBases)
+		{
+			// Invocar al método de búsqueda
+			cout << "Buscando plan a X" << endl;
+			indexBases = 0;
+			planBases.clear();
+			plan_inseguro = false;
+			NodoR nodo_base;
+			pair<vector<Action>,int> path_coste;
+			EstadoR inicio;
+			inicio.f = sensores.posF;
+			inicio.c = sensores.posC;
+			inicio.brujula = sensores.rumbo;
+			inicio.zapatillas = tiene_zapatillas;
+			cout << "Conozco bases? " << boolalpha << conozco_bases << endl;
+			if(conozco_bases) {
+				nodo_base = BuscaCasillas(inicio, sensores, {'X'});
+				plan_inseguro = nodo_base.path_inseguro;
+				// Compruebo si llego (si no estoy muy seguro, no me arriesgo)
+				path_coste = {nodo_base.secuencia, nodo_base.g};
+				bool imposible = nodo_base.secuencia.size() == 0;
+				bool llego = (plan_inseguro && path_coste.second < 0.7*sensores.energia) || path_coste.second < sensores.energia;
+				if(!imposible && llego) 
+					planBases = path_coste.first;
+				else 
+					conozco_bases = false;
+				VisualizaPlan(inicio, planBases);
+				PintaPlan(planBases, tiene_zapatillas);
+				hayPlanBases = (planBases.size() != 0);
+			}		
+			if(!hayPlanBases) {
+				cout << "No hay plan a X" << endl;
+				if(sensores.superficie[0] == 'C' || sensores.superficie[0] == 'D') {
+					return ComportamientoRescatadorNivel_0(sensores);
+				}
+				else {
+					nodo_base = BuscaCasillas(inicio, sensores, {'C', 'D'});
+					plan_inseguro = nodo_base.path_inseguro;
+					// Compruebo si llego (si no estoy muy seguro, no me arriesgo)
+					path_coste = {nodo_base.secuencia, nodo_base.g};
+					bool imposible = nodo_base.secuencia.size() == 0;
+					bool llego = (plan_inseguro && path_coste.second < 0.7*sensores.energia) || path_coste.second < sensores.energia;
+					if(!imposible && llego) 
+						planBases = path_coste.first;
+					PintaPlan(planBases, tiene_zapatillas);
+					hayPlanBases = (planBases.size() != 0);
+					if(!hayPlanBases) {
+						// No hay caminos visibles, último recurso: dar vueltas
+						if(CasillaAccesibleRescatadorOpciones(inicio, 1, 1)) {
+							accion = WALK;
+						}
+						else if(CasillaAccesibleRescatadorOpciones(inicio, 2, 1)) {
+							accion = RUN;
+						}
+						else {
+							accion = TURN_SR;
+						}
+						return accion;
+					}
+				}
+			}
+			cout << "Plan a X encontrado" << endl;
+		}
+		if (hayPlanBases && indexBases < planBases.size())
+		{
+			cout << "ejecutando plan" << endl;
+			accion = planBases[indexBases];
+			++indexBases;
+		}
+		if (indexBases == planBases.size())
+		{
+			cout << "Plan a X terminado" << endl;
+			hayPlanBases = false;
+		}
+		return accion;
+	}
+
+	/**********************************************************************************************
+	 * ? EXPLORAR UN POCO DE MAPA AL INICIO
+	 **********************************************************************************************/
+
+	 if(num_acciones < ACCIONES_EXPLORACION) {
+		if(sensores.superficie[0] == 'C' || sensores.superficie[0] == 'S' || sensores.superficie[0] == 'D' || sensores.superficie[0] == 'X') 
+			return Exploracion(sensores);
+		else {
+			indexBases = 0;
+			planBases.clear();
+			plan_inseguro = false;
+			NodoR nodo_base;
+			pair<vector<Action>,int> path_coste;
+			EstadoR inicio;
+			inicio.f = sensores.posF;
+			inicio.c = sensores.posC;
+			inicio.brujula = sensores.rumbo;
+			inicio.zapatillas = tiene_zapatillas;
+			if(conozco_bases) {
+				nodo_base = BuscaCasillas(inicio, sensores, {'C','D','X','S'});
+				plan_inseguro = nodo_base.path_inseguro;
+				// Compruebo si llego (si no estoy muy seguro, no me arriesgo)
+				path_coste = {nodo_base.secuencia, nodo_base.g};
+				bool imposible = nodo_base.secuencia.size() == 0;
+				bool llego = (plan_inseguro && path_coste.second < 0.7*sensores.energia) || path_coste.second < sensores.energia;
+				if(!imposible && llego) 
+					planBases = path_coste.first;
+				VisualizaPlan(inicio, planBases);
+				PintaPlan(planBases, tiene_zapatillas);
+				hayPlanBases = (planBases.size() != 0);
+				if(imposible) conozco_bases = false;
+			}
+			if(!hayPlanBases) {
+				// No hay caminos visibles, último recurso: dar vueltas
+				if(CasillaAccesibleRescatadorOpciones(inicio, 1, 1)) {
+					accion = WALK;
+				}
+				else if(CasillaAccesibleRescatadorOpciones(inicio, 2, 1)) {
+					accion = RUN;
+				}
+				else {
+					accion = TURN_SR;
+				}
+				return accion;
+			}
+
+		}
+	}
+
+	// cout << "Doy vueltas hasta cansarme" << endl;
+
+	// return TURN_SR;
+
+	
+	/**********************************************************************************************
+	 * ? LLAMAR A AUXILIAR
+	 **********************************************************************************************/
+
 	if(sensores.posF == sensores.destinoF && sensores.posC == sensores.destinoC) {
 		// Llamar al auxiliar
 		// cout << "Tiempo de espera: " << tiempo_espera << endl;
@@ -1444,9 +2028,12 @@ Action ComportamientoRescatador::ComportamientoRescatadorNivel_4(Sensores sensor
 			objetivo_anterior = {sensores.destinoF, sensores.destinoC};
 		}
 	}
-	// Llamar a A* considerando las casillas desconocidas como transitables
+	
+	/**********************************************************************************************
+	 * ? IR A OBJETIVO
+	 **********************************************************************************************/
+
 	else {
-		cout << "No obj" << endl;
 		EstadoR estado;
 		estado.f = sensores.posF;
 		estado.c = sensores.posC;
@@ -1454,14 +2041,49 @@ Action ComportamientoRescatador::ComportamientoRescatadorNivel_4(Sensores sensor
 		estado.zapatillas = tiene_zapatillas;
 
 		// Si me choco o me voy a caer, recalculo el plan 
+		cout << "Tengo plan? " << boolalpha << hayPlan << endl;
+		cout << "Tengo que replanificar? " << boolalpha << HayQueReplanificar(sensores, accion, estado) << endl;
 		if(hayPlan && HayQueReplanificar(sensores, plan[index], estado)) {
-			// cout << "uwu" << endl;
 			hayPlan = false;
+			index = 0;
+			plan.clear();
+			plan_inseguro = false;
 		}
-		cout << "planifico" << endl;
-		cout << boolalpha << hayPlan << endl;
-		cout << plan.size() << endl;
-		accion = ComportamientoRescatadorNivel_2(sensores);
+		cout << "Busco objetivo" << endl;
+		accion = BuscaObjetivo(sensores);
+		cout << "Encontré objetivo?" << boolalpha << hayPlan << endl;
+		//! ComportamientoReactivo
+
+		//? Esto podría ser un problema, ya que podría alejarse del objetivo
+		//? Solución: A* a la casilla conocida más cercana y si desde ahí no se puede, reactivo
+
+		//! Esto está cogido de los pelos, pero funciona bien y podría usarse como comportamiento principal
+		//? Si no tengo plan y no puedo llegar al objetivo, busco la casilla conocida más cercana
+		if(!hayPlan) {
+			pair<int,int> casilla_mas_cercana = CasillaMasFavorable(sensores.destinoF, sensores.destinoC);
+			int fil = casilla_mas_cercana.first;
+			int col = casilla_mas_cercana.second;
+			EstadoR fin;
+			fin.f = fil;
+			fin.c = col;
+			NodoR node = A_estrella(estado, fin, sensores);
+			plan_inseguro = node.path_inseguro;
+			// Compruebo si llego (si no estoy muy seguro, no me arriesgo)
+			bool imposible = node.secuencia.size() == 0;
+			bool llego = (plan_inseguro && node.g < 0.7*sensores.energia) || node.g < sensores.energia;
+			if(!imposible && llego) {
+				plan = node.secuencia;
+
+			}
+			VisualizaPlan(estado, plan);
+			PintaPlan(plan, tiene_zapatillas);
+			hayPlan = (plan.size() != 0);
+			if(!hayPlan) {
+				// Exploración durante MAX_EXPLORACIÓN INSTANTES
+				num_acciones = 0;
+				baneadas[fil][col] = true;
+			}
+		}
 	}
 	cout << "uwu3" << endl;
 

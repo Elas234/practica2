@@ -36,7 +36,7 @@ Action ComportamientoAuxiliar::think(Sensores sensores)
 		// accion = ComportamientoAuxiliarNivel_E(sensores);
 		break;
 	case 4:
-		accion = ComportamientoAuxiliarNivel_4 (sensores);
+		// accion = ComportamientoAuxiliarNivel_4 (sensores);
 		break;
 	}
 
@@ -82,6 +82,8 @@ void ComportamientoAuxiliar::SituarSensorEnMapa(const Sensores & sensores) {
 		pair<int,int> casilla = VtoM(i, sensores.rumbo, orig);
 		int nf = casilla.first;
 		int nc = casilla.second;
+		if(sensores.superficie[i] == 'X') conozco_bases = true;
+		if(sensores.superficie[i] == 'D') conozco_zapatillas = true;
 		mapaResultado[nf][nc] = sensores.superficie[i];
 		mapaCotas[nf][nc] = sensores.cota[i];
 		if(sensores.superficie[i] == 'X' && sensores.agentes[i] == 'r') {
@@ -660,7 +662,8 @@ Action ComportamientoAuxiliar::ComportamientoAuxiliarNivel_0(Sensores sensores)
 
 	SituarSensorEnMapa(sensores);
 	if(last_action == WALK)
-		mapaFrecuencias[sensores.posF][sensores.posC]++;
+		// mapaFrecuencias[sensores.posF][sensores.posC]++;
+		OndaDeCalor(sensores.posF, sensores.posC);
 
 	if(sensores.superficie[0] == 'D') {
 		tiene_zapatillas = true;
@@ -774,8 +777,8 @@ Action ComportamientoAuxiliar::ComportamientoAuxiliarNivel_1(Sensores sensores)
 
 	SituarSensorEnMapa(sensores);
 	if(last_action == WALK)
-		// OndaDeCalor(sensores.posF, sensores.posC);
-		mapaFrecuencias[sensores.posF][sensores.posC]++;
+		OndaDeCalor(sensores.posF, sensores.posC);
+		// mapaFrecuencias[sensores.posF][sensores.posC]++;
 
 	if(sensores.superficie[0] == 'D') {
 		tiene_zapatillas = true;
@@ -899,61 +902,272 @@ bool ComportamientoAuxiliar::HayQueReplanificar(const Sensores & sensores, const
 	return false;
 }
 
+vector<Action> ComportamientoAuxiliar::DijkstraPuestosBase(const EstadoA &inicio, const Sensores & sensores) {
+	NodoA current_node;
+	min_priority_queue frontier;
+	set<EstadoA> explored;
+	vector<Action> path;
+
+	int cont = 0;
+
+	current_node.estado = inicio; // Asigna el estado inicial al nodo actual
+	current_node.g = 0;
+	// current_node.h = Heuristica(current_node.estado, final);
+
+	frontier.push(current_node);
+
+	bool SolutionFound = mapaResultado[current_node.estado.f][current_node.estado.c] == 'X';
+
+	while (!SolutionFound && !frontier.empty())
+	{
+		frontier.pop();
+
+		if (mapaResultado[current_node.estado.f][current_node.estado.c] == 'D')
+		{
+			current_node.estado.zapatillas = true;
+		}
+		explored.insert(current_node.estado);
+
+
+		SolutionFound = mapaResultado[current_node.estado.f][current_node.estado.c] == 'X';
+		if(SolutionFound) break;
+
+		Action acciones[2] = {WALK, TURN_SR};
+		for(Action accion : acciones) {
+			NodoA child;
+			child.estado = current_node.estado;
+			child.secuencia = current_node.secuencia;
+
+			bool accesible = true;
+			child.estado = applyA(accion, current_node.estado, accesible, sensores);
+			if(!accesible) continue;
+			child.g = current_node.g + CalcularCoste(accion, current_node.estado);
+			// child.h = Heuristica(child.estado, final);
+			
+			if (explored.find(child.estado) == explored.end())
+			{
+				child.secuencia.push_back(accion);
+				frontier.push(child);
+			}
+		}
+
+		if (!SolutionFound && !frontier.empty())
+		{
+			current_node = frontier.top();
+			while(explored.find(current_node.estado) != explored.end() && !frontier.empty())
+			{
+				frontier.pop();
+				current_node = frontier.top();
+			}
+		}
+		SolutionFound = mapaResultado[current_node.estado.f][current_node.estado.c] == 'X';
+	}
+
+	if (SolutionFound)
+		path = current_node.secuencia;
+
+	return path;
+}
+
 /*********************************** NIVEL 4 **********************************************/
 Action ComportamientoAuxiliar::ComportamientoAuxiliarNivel_4(Sensores sensores)
 {
 	Action accion = IDLE;
 
-	const int LIMITE_ENERGIA = 2700;
-	const int RECARGA = 100;
-
-
-	// Cuando el rescatador me llame, lanzo A* considerando las casillas desconocidas como transitables
-	
-	if((sensores.energia <= LIMITE_ENERGIA && (sensores.superficie[0] == 'C' || sensores.superficie[0] == 'X')) || recargar) {
-		// Low battery, abandonar posible comportamiento deliberativo para recargar
-		hayPlan = false;
-		plan.clear();
-
-		if(tiempo_recarga == 0) recargar = true;
-		++tiempo_recarga;
-		if(tiempo_recarga > RECARGA) {
-			recargar = false;
-			tiempo_recarga = 0;
-		}
-		return ComportamientoAuxiliarNivel_0(sensores);
-	}
-
-	//TODO : incrementar frecuencias alrededor (funcion)
+	const int UMBRAL_TIEMPO = 4*mapaResultado.size();
+	const int UMBRAL_ENERGIA = 20*mapaResultado.size();
+	const int MAX_ENERGIA = 3000;
 
 	SituarSensorEnMapa(sensores);
 	if(last_action == WALK)
-		mapaFrecuencias[sensores.posF][sensores.posC]++;
+		OndaDeCalor(sensores.posF, sensores.posC);
 
 	if(sensores.superficie[0] == 'D') {
 		tiene_zapatillas = true;
 	}
-	// cout << boolalpha << sensores.venpaca << endl;
+
+	if(sensores.superficie[0] != 'X') {
+		recargar = sensores.energia <= UMBRAL_ENERGIA;
+	}
+
+	/**********************************************************************************************
+	 * ? RECARGAR ENERGÍA 
+	 **********************************************************************************************/
+
+	if(recargar && conozco_bases) {
+		// Dijkstra a puestos base
+		// cout << "Dijkstra a puestos base" << endl;
+		hayPlan = false;
+		plan.clear();
+		index = 0;
+
+		// cout << sensores.energia << endl;
+		if(sensores.superficie[0] == 'X') {
+			// cout << "Recargando..." << endl;
+			if(sensores.energia == MAX_ENERGIA) {
+				// cout << "Voy a dejar de recargar..." << endl;
+				recargar = false;
+			}
+			
+			return IDLE;
+		}
+		
+		
+		
+		// cout << sensores.energia << endl;
+		
+
+		// cout << "Voy a X" << endl;
+
+		EstadoA estado;
+		estado.f = sensores.posF;
+		estado.c = sensores.posC;
+		estado.brujula = sensores.rumbo;
+		estado.zapatillas = tiene_zapatillas;
+		if(hayPlanBases && HayQueReplanificar(sensores, planBases[indexBases], estado)) {
+			// Borrar plan
+			// cout << "replanifico..." << endl;
+			hayPlanBases = false;
+		}
+
+		// cout << "No replanifico..." << endl;
+
+
+		if (!hayPlanBases)
+		{
+			// Invocar al método de búsqueda
+			// cout << "Buscando plan a X" << endl;
+			indexBases = 0;
+			planBases.clear();
+			EstadoA inicio;
+			inicio.f = sensores.posF;
+			inicio.c = sensores.posC;
+			inicio.brujula = sensores.rumbo;
+			inicio.zapatillas = tiene_zapatillas;
+			planBases = DijkstraPuestosBase(inicio, sensores);
+			VisualizaPlan(inicio, planBases);
+			PintaPlan(planBases, tiene_zapatillas);
+			hayPlanBases = (planBases.size() != 0);
+			// cout << "Plan a X encontrado" << endl;
+		}
+		if (hayPlanBases && indexBases < planBases.size())
+		{
+			// cout << "ejecutando plan" << endl;
+			accion = planBases[indexBases];
+			++indexBases;
+		}
+		if (indexBases == planBases.size())
+		{
+			// cout << "Plan a X terminado" << endl;
+			hayPlanBases = false;
+		}
+		return accion;
+	}
+
+	// cout << "Doy vueltas hasta cansarme" << endl;
+
+	// return TURN_SR;
+
+
+	cout << "Voy a ver si me llaman" << endl;
 	if(sensores.venpaca) {
-		// Si me choco, relanzo A* ahora con más visión
+		cout << "Me llaman" << endl;
 		EstadoA estado;
 		estado.f = sensores.posF;
 		estado.c = sensores.posC;
 		estado.brujula = sensores.rumbo;
 		estado.zapatillas = false;
 		
-		if(hayPlan && HayQueReplanificar(sensores, plan[index], estado)) hayPlan = false;
+		cout << "Voy a ver si replanifico" << endl;
+		if(hayPlan && HayQueReplanificar(sensores, plan[index], estado)) {
+			cout << "replanifico..." << endl;
+			hayPlan = false;
+		}
 		
+		cout << "Comportamiento Nivel 3" << endl;
 		accion = ComportamientoAuxiliarNivel_3(sensores);
+		cout << "Termine con nivel 3" << endl;
 	}
 	// Mientras el rescatador no me llame, descubro mapa (similar al nivel 1)
 	else {
+		cout << "No me llaman" << endl;
+		recargar = true;
 		hayPlan = false;
+		index = 0;
 		plan.clear();
-		accion = ComportamientoAuxiliarNivel_1(sensores);
+		if(conozco_bases) {
+			// Dijkstra a puestos base
+			// cout << "Dijkstra a puestos base" << endl;
+	
+			// cout << sensores.energia << endl;
+			if(sensores.superficie[0] == 'X') {
+				// cout << "Recargando..." << endl;
+				if(sensores.energia == MAX_ENERGIA) {
+					// cout << "Voy a dejar de recargar..." << endl;
+					recargar = false;
+				}
+				
+				return IDLE;
+			}
+			
+			
+			
+			// cout << sensores.energia << endl;
+			
+	
+			// cout << "Voy a X" << endl;
+	
+			EstadoA estado;
+			estado.f = sensores.posF;
+			estado.c = sensores.posC;
+			estado.brujula = sensores.rumbo;
+			estado.zapatillas = tiene_zapatillas;
+			if(hayPlanBases && HayQueReplanificar(sensores, planBases[indexBases], estado)) {
+				// Borrar plan
+				// cout << "replanifico..." << endl;
+				hayPlanBases = false;
+			}
+	
+			// cout << "No replanifico..." << endl;
+	
+	
+			if (!hayPlanBases)
+			{
+				// Invocar al método de búsqueda
+				// cout << "Buscando plan a X" << endl;
+				indexBases = 0;
+				planBases.clear();
+				EstadoA inicio;
+				inicio.f = sensores.posF;
+				inicio.c = sensores.posC;
+				inicio.brujula = sensores.rumbo;
+				inicio.zapatillas = tiene_zapatillas;
+				planBases = DijkstraPuestosBase(inicio, sensores);
+				VisualizaPlan(inicio, planBases);
+				PintaPlan(planBases, tiene_zapatillas);
+				hayPlanBases = (planBases.size() != 0);
+				// cout << "Plan a X encontrado" << endl;
+			}
+			if (hayPlanBases && indexBases < planBases.size())
+			{
+				// cout << "ejecutando plan" << endl;
+				accion = planBases[indexBases];
+				++indexBases;
+			}
+			if (indexBases == planBases.size())
+			{
+				// cout << "Plan a X terminado" << endl;
+				hayPlanBases = false;
+			}
+			return accion;
+		}
+		else accion = ComportamientoAuxiliarNivel_1(sensores);
+	
 	}
 	// Cuando llegue o el rescatador aborte misión, repito
 	last_action = accion;
+
+	cout << "Termine" << endl;
 
 	return accion;
 }
