@@ -101,16 +101,21 @@ public:
 		baneadas.resize(size, vector<bool>(size, false));
 
 		tiempo_espera = tiempo_recarga = 0;
-		recargar = false;
+		necesito_recargar = false;
+		recargando = false;
 		hayPlan = false;
 		plan.clear();
-		planBases.clear();
-		hayPlanBases = false;
-		index = indexBases = 0;
+		index = 0;
+		// planBases.clear();
+		// hayPlanBases = false;
+		// index = indexBases = 0;
 		objetivo_anterior = {0,0};
 		conozco_bases = false;
 		conozco_zapatillas = false;
 		plan_inseguro = false;
+		energia_necesaria = 0;
+		ejecutando_plan_objetivo = false;
+		instantes = 0;
 	}
 
 	/**
@@ -298,16 +303,21 @@ public:
 
 	vector<Action> Dijkstra(const EstadoR &inicio, const EstadoR &final, const Sensores & sensores);
 	NodoR A_estrella(const EstadoR &inicio, const EstadoR &final, const Sensores & sensores);
+	Action PlanRecarga(Sensores sensores);
 
 	// pre : conozco_bases == true
 	NodoR BuscaCasillas(const EstadoR &inicio, const Sensores & sensores, const vector<char>& casilla_objetivo);
 	pair<int,int> CasillaMasFavorable(int f, int c);
-	Action BuscaObjetivo(Sensores sensores, int f, int c);
+	void BuscaObjetivo(Sensores sensores, int f = -1, int c = -1);
 	bool EncontreCasilla(const EstadoR &st, vector<char> casillas_objetivo);
-	bool HayQueReplanificar(const Sensores & sensores, const Action & accion, const EstadoR & estado);
+	bool HayQueReplanificar(const Sensores & sensores, const Action & accion);
 	int SelectCasillaAllAround_LVL4(Sensores sensores, const vector<int> & casillas_interesantes, 
 		const vector<bool> & is_interesting);
 	Action Exploracion(Sensores sensores);
+	void AnularPlan();
+	Action UltimoRecurso(Sensores sensores);
+	bool PlanCasillas(Sensores sensores, const vector<char> & casillas);
+	Action LlamarAuxiliar(Sensores sensores);
 
 	Action ComportamientoRescatadorNivel_0(Sensores sensores);
 	Action ComportamientoRescatadorNivel_1(Sensores sensores);
@@ -335,15 +345,22 @@ private:
 
 	int tiempo_espera;
 	int tiempo_recarga;
-	bool recargar;
+	bool necesito_recargar;
+	bool recargando;
 	bool conozco_bases;
 	bool conozco_zapatillas;
 	pair<int,int> objetivo_anterior;
-	bool hayPlanBases;
-	vector<Action> planBases;
-	int indexBases;
+	// bool hayPlanBases;
+	// vector<Action> planBases;
+	// int indexBases;
 	bool plan_inseguro;
+	bool ejecutando_plan_objetivo;
 	vector<vector<bool>> baneadas;
+	int energia_necesaria;
+	int comportamiento;
+
+	const int UMBRAL_TIEMPO = 0;
+	int instantes;
 };
 
 #endif
