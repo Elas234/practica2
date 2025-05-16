@@ -10,6 +10,12 @@
 
 #include "comportamientos/comportamiento.hpp"
 
+// Opciones de replanificacion
+
+#define ESTANDAR 0
+#define PERMISIVA 1
+#define NO_PERMISIVA 2
+
 struct EstadoR
 {
 	int f;
@@ -54,12 +60,15 @@ struct NodoR
 		int f1 = g + h;
 		int f2 = node.g + node.h;
 		if (f1 != f2) return f1 < f2;
-	
-		// Rompe empates por componentes del estado
-		if (estado.f != node.estado.f) return estado.f < node.estado.f;
-		if (estado.c != node.estado.c) return estado.c < node.estado.c;
-		if (estado.brujula != node.estado.brujula) return estado.brujula < node.estado.brujula;
-		return estado.zapatillas < node.estado.zapatillas;
+		else if (f1 == f2) {
+			if (g != node.g) return g < node.g;
+			// Rompe empates por componentes del estado
+			if (estado.f != node.estado.f) return estado.f < node.estado.f;
+			if (estado.c != node.estado.c) return estado.c < node.estado.c;
+			if (estado.brujula != node.estado.brujula) return estado.brujula < node.estado.brujula;
+			return estado.zapatillas < node.estado.zapatillas;
+		}
+		else return false;
 	}
 
 	bool operator>(const NodoR &node) const {
@@ -102,7 +111,7 @@ public:
 
 		tiempo_espera = tiempo_recarga = 0;
 		necesito_recargar = false;
-		recargando = false;
+		buscando_recarga = false;
 		hayPlan = false;
 		plan.clear();
 		index = 0;
@@ -116,6 +125,15 @@ public:
 		energia_necesaria = 0;
 		ejecutando_plan_objetivo = false;
 		instantes = 0;
+		opcion_replanificacion = NO_PERMISIVA;
+		opcion_busqueda = NO_PERMISIVA;
+		camino_duro = false;
+		modo_tonto = false;
+		hay_plan_restrictivo = true;
+		recargando = false;
+		desconocidas_busqueda = '?';
+		veo_base = false;
+		//UMBRAL_ENERGIA = size*sqrt(size);
 	}
 
 	/**
@@ -129,6 +147,7 @@ public:
 		hayPlan = false;
 		index = 0;
 		plan.clear();
+		opcion_busqueda = PERMISIVA;
 	}
 
 	/**
@@ -318,6 +337,10 @@ public:
 	Action UltimoRecurso(Sensores sensores);
 	bool PlanCasillas(Sensores sensores, const vector<char> & casillas);
 	Action LlamarAuxiliar(Sensores sensores);
+	Action OrganizaPlan(Sensores sensores);
+	bool CaminoDuro(const EstadoR & inicio, const EstadoR & fin, const vector<Action> & plan) ;
+	void DecideOpcionReplanificacion(const Sensores & sensores);
+	void AnularRecarga();
 
 	Action ComportamientoRescatadorNivel_0(Sensores sensores);
 	Action ComportamientoRescatadorNivel_1(Sensores sensores);
@@ -346,7 +369,7 @@ private:
 	int tiempo_espera;
 	int tiempo_recarga;
 	bool necesito_recargar;
-	bool recargando;
+	bool buscando_recarga;
 	bool conozco_bases;
 	bool conozco_zapatillas;
 	pair<int,int> objetivo_anterior;
@@ -359,8 +382,18 @@ private:
 	int energia_necesaria;
 	int comportamiento;
 
-	const int UMBRAL_TIEMPO = 0;
+	const int UMBRAL_TIEMPO = 500;
+	const int RADIO_INMERSION = 5;
+	//int UMBRAL_ENERGIA;
 	int instantes;
+	int opcion_replanificacion;
+	int opcion_busqueda;
+	bool camino_duro;
+	bool modo_tonto;
+	bool hay_plan_restrictivo;
+	bool recargando;
+	char desconocidas_busqueda;
+	bool veo_base;
 };
 
 #endif

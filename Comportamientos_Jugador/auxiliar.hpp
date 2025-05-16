@@ -8,6 +8,10 @@
 #include <map>
 #include "comportamientos/comportamiento.hpp"
 
+#define ESTANDAR 0
+#define PERMISIVA 1
+#define NO_PERMISIVA 2
+
 struct EstadoA
 {
 	int f;
@@ -39,8 +43,9 @@ struct NodoA
 	vector<Action> secuencia;
 	int g;
 	int h;
+	bool path_inseguro;
 
-	NodoA() : g(0), h(0) {}
+	NodoA() : g(0), h(0) , path_inseguro(false) {}
 
 	bool operator==(const NodoA &nodo) const
 	{
@@ -61,12 +66,15 @@ struct NodoA
 		int f1 = g + h;
 		int f2 = node.g + node.h;
 		if (f1 != f2) return f1 < f2;
-	
-		// Rompe empates por componentes del estado
-		if (estado.f != node.estado.f) return estado.f < node.estado.f;
-		if (estado.c != node.estado.c) return estado.c < node.estado.c;
-		if (estado.brujula != node.estado.brujula) return estado.brujula < node.estado.brujula;
-		return estado.zapatillas < node.estado.zapatillas;
+		else if (f1 == f2) {
+			if (g != node.g) return g < node.g;
+			// Rompe empates por componentes del estado
+			if (estado.f != node.estado.f) return estado.f < node.estado.f;
+			if (estado.c != node.estado.c) return estado.c < node.estado.c;
+			if (estado.brujula != node.estado.brujula) return estado.brujula < node.estado.brujula;
+			return estado.zapatillas < node.estado.zapatillas;
+		}
+		else return false;
 	}
 
 	bool operator>(const NodoA &node) const {
@@ -105,17 +113,43 @@ public:
 		baneados.resize(16, false);
 		decision = -1;
 		mapaFrecuencias.resize(size, vector<int>(size, 0));
+		baneadas.resize(size, vector<bool>(size, false));
+
+		necesito_recargar = false;
+		buscando_recarga = false;
 
 		index = 0;
 
 		hayPlan = false;
 		plan.clear();
-		tiempo_recarga = 0;
 		recargar = false;
 		conozco_bases = false;
 		conozco_zapatillas = false;
-		hayPlanBases = false;
-		indexBases = 0;
+		objetivo_anterior = {0,0};
+		conozco_bases = false;
+		conozco_zapatillas = false;
+		plan_inseguro = false;
+		energia_necesaria = 0;
+		ejecutando_plan_objetivo = false;
+		instantes = 0;
+		opcion_replanificacion = NO_PERMISIVA;
+		opcion_busqueda = NO_PERMISIVA;
+		desconocidas_busqueda = 'A';
+		desconocidas_replanificacion = 'A';
+		camino_duro = false;
+		modo_tonto = false;
+		hay_plan_restrictivo = true;
+		recargando = false;
+		estoy_cerca_objetivo = false;
+		veo_base = false;
+		pos_base = pos_zapatillas = {-1,-1};
+		ocioso = true;
+
+
+		// hayPlanBases = false;
+		// indexBases = 0;
+
+
 	}
 	/**
 	 * @brief Constructor para los niveles 2,3
@@ -315,10 +349,23 @@ public:
 	void AnularMatrizA(vector<vector<unsigned char>> &m);
 	int Heuristica(const EstadoA &st, const EstadoA &final);
 	int CalcularCoste(Action accion, const EstadoA &st);
-	vector<Action> A_Estrella(const EstadoA &inicio, const EstadoA &final, const Sensores & sensores);
+	NodoA A_Estrella(const EstadoA &inicio, const EstadoA &final, const Sensores & sensores);
 	vector<Action> DijkstraPuestosBase(const EstadoA &inicio, const Sensores & sensores);
 
-	bool HayQueReplanificar(const Sensores & sensores, const Action & accion, const EstadoA & estado);
+	bool HayQueReplanificar(const Sensores & sensores, const Action & accion);
+	void AnularRecarga();
+	void AnularPlan();
+	Action PlanRecarga(Sensores sensores);
+	NodoA BuscaCasillas(const EstadoA &inicio, const Sensores & sensores, const vector<char>& casillas_objetivo);
+	bool EncontreCasilla(const EstadoA &st, vector<char> casillas_objetivo);
+	bool CaminoDuro(const EstadoA & inicio, const EstadoA & fin, const vector<Action> & plan);
+	bool PlanCasillas(Sensores sensores, const vector<char> & casillas);
+	Action UltimoRecurso(Sensores sensores);
+	bool CasillaAccesibleAuxiliarOpciones(const EstadoA &st, int opcion = 0);
+	Action OrganizaPlan(Sensores sensores);
+	void DecideOpcionReplanificacion(const Sensores & sensores);
+	void BuscaObjetivo(Sensores sensores, int f = -1, int c = -1);
+	NodoA AproximacionObjetivo(const EstadoA &inicio, const EstadoA &final, const Sensores & sensores);
 
 	Action ComportamientoAuxiliarNivel_0(Sensores sensores);
 	Action ComportamientoAuxiliarNivel_1(Sensores sensores);
@@ -348,13 +395,44 @@ private:
 	bool hayPlan;
 
 
-	int tiempo_recarga;
 	bool recargar;
+	bool necesito_recargar;
+	bool buscando_recarga;
 	bool conozco_bases;
 	bool conozco_zapatillas;
 	vector<Action> planBases;
-	int indexBases;
-	bool hayPlanBases;
+	// int indexBases;
+	// bool hayPlanBases;
+
+	// pair<int,int> objetivo_anterior;
+	
+	bool plan_inseguro;
+	bool ejecutando_plan_objetivo;
+	pair<int,int> objetivo_anterior;
+	vector<vector<bool>> baneadas;
+	int energia_necesaria;
+	int comportamiento;
+
+	const int UMBRAL_TIEMPO = 1;
+	const int RADIO_INMERSION = 7;
+	//int UMBRAL_ENERGIA;
+	int instantes;
+	int opcion_replanificacion;
+	int opcion_busqueda;
+	char desconocidas_replanificacion;
+	char desconocidas_busqueda;
+	bool camino_duro;
+	bool modo_tonto;
+	bool hay_plan_restrictivo;
+	bool recargando;
+	bool veo_base;
+	pair<int,int> pos_base;
+	pair<int,int> pos_zapatillas;
+	bool ocioso;
+
+	bool estoy_cerca_objetivo;
+
+	
 	
 };
 
